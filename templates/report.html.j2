@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyV Report: {{ job_name }}</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f9; color: #333; }
+        h1, h2 { color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .grid-item { background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 15px; text-align: center; }
+        .grid-item img { max-width: 100%; height: auto; border-radius: 4px; }
+        .grid-item p { margin-top: 10px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Verification Report</h1>
+    <h2>Job: {{ job_name }} (ID: {{ job_id }})</h2>
+    <div class="grid-container">
+        {% for image in images %}
+        <div class="grid-item">
+            <a href="{{ image.filepath }}" target="_blank">
+                <img src="{{ image.filepath }}" alt="Image {{ image.id }}">
+            </a>
+            <p>{{ variable_name }}: {{ image.variable_value }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
