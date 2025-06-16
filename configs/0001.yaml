@@ -1,0 +1,48 @@
+# ジョブの一意な名前
+job_name: "verify_5_loras_with_4_prompts"
+
+# ベースとなるワークフローのパス
+base_workflow: "./workflows/api_base.json"
+
+# このジョブ全体で固定するパラメータ
+fixed_parameters:
+  # LoRAスタックのスイッチを強制的にONにする
+  - node_id: 116 # ★要確認: ターゲットのCR LoRA Stack
+    input_name: "switch_1"
+    value: "On"
+
+    
+  # Seed (メインのKSamplerを想定)
+  - node_id: 171 # ★要確認: KSampler
+    input_name: "seed"
+    value: 5667788 # 固定シード
+
+# 変化させる変数の組み合わせ（XYZプロット）
+variables:
+  # 軸1: Positive Prompt
+  - node_id: 149 # ★要確認: Positiveプロンプトノード
+    input_name: "text"
+    values:
+      # プロンプト1: 元のプロンプト
+      - "1girl, shiina yuika (nijisanji), nijiyuika, completely_nude,  spread_legs,  lying,  straight-on, from below, black_background, nsfw, master piece, best quality, amazing quality"
+      # プロンプト2: 四つん這い・後ろから
+      - "1girl, shiina yuika (nijisanji), nijiyuika, from behind, on all fours, completely_nude,  black_background, nsfw, master piece, best quality, amazing quality"
+      # プロンプト3: 顔のアップ
+      - "1girl, shiina yuika (nijisanji), nijiyuika, close-up on face,  black_background,  nsfw, master piece, best quality, amazing quality"
+      # プロンプト4: 立っている全身
+      - "1girl, shiina yuika (nijisanji), nijiyuika, standing, black_background,   nsfw, master piece, best quality, amazing quality"
+
+  # 軸2: LoRA Name
+  - node_id: 116 # ★要確認: ターゲットのCR LoRA Stack
+    input_name: "lora_name_1"
+    values: 
+      - "Illustrious_Glossy_Skin_V3.safetensors"
+      - "front_lighting_il_2_d16_soft.safetensors"
+      - "AIイラストおじさん_style_illustrious_goofy.safetensors"
+      - "748cmSDXL.safetensors"
+      - "streaming-tears-ponyxl-lora-nochekaiser.safetensors"
+
+  # 軸3: LoRA Weight
+  - node_id: 116 # ★要確認: ターゲットのCR LoRA Stack
+    input_name: "model_weight_1"
+    values: [0.4, 0.6, 0.8, 1.0, 1.2, 1.4]

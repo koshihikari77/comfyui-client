@@ -23,19 +23,23 @@ class Config:
         self._validate()
 
     def _validate(self):
-        required_keys = ['job_name', 'base_workflow', 'variable']
+        required_keys = ['job_name', 'base_workflow', 'variables']
         for key in required_keys:
             if key not in self.job_data:
                 raise ValueError(f"Missing required key in config: '{key}'")
-        
-        variable = self.job_data['variable']
+        # 'variables' がリストであることを確認
+        if not isinstance(self.job_data['variables'], list):
+            raise TypeError("'variables' must be a list.")
+
+        variable = self.job_data['variables']
         required_var_keys = ['node_id', 'input_name', 'values']
-        for key in required_var_keys:
-            if key not in variable:
-                raise ValueError(f"Missing required key in 'variable': '{key}'")
+        for v in variable:
+            for key in required_var_keys:
+                if key not in v:
+                    raise ValueError(f"Missing required key in 'variable': '{key}'")
         
-        if not isinstance(variable['values'], list):
-            raise TypeError("'variable.values' must be a list.")
+            if not isinstance(v['values'], list):
+                raise TypeError("'variable.values' must be a list.")
         
         # 接続設定のバリデーション
         if 'server_address' not in self.connection_data:
@@ -54,10 +58,9 @@ class Config:
         return self.job_config_path.parent / self.job_data['base_workflow']
 
     @property
-    def variable(self) -> dict:
-        return self.job_data['variable']
+    def variables(self) -> dict:
+        return self.job_data['variables']
     
     @property
     def job_config_data(self) -> dict:
-        """DB保存用にジョブ設定全体を返す"""
         return self.job_data

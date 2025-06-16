@@ -1,0 +1,3 @@
+# Connection settings for ComfyV
+server_address: "34.116.138.2:8188"
+# api_key: "your-secret-api-key" # 将来的な拡張用
