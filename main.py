@@ -3,11 +3,14 @@ import sys
 import logging
 from pathlib import Path
 
+from core.config import Config
+from core.executors.base_executor import BaseExecutor
+from core.executors.sequence_executor import SequenceJobExecutor
+from core.executors.grid_search_executor import GridSearchJobExecutor
+
 # プロジェクトルートをPythonパスに追加
 sys.path.append(str(Path(__file__).resolve().parent))
 
-from core.config import Config
-from core.executor import JobExecutor
 
 def setup_logging(verbose: bool):
     """ロギングの基本設定を行う"""
@@ -41,13 +44,22 @@ def main():
     # ロガーをセットアップ
     setup_logging(args.verbose)
 
+
     try:
         logging.info("Initializing ComfyV...")
         config = Config(
             job_config_path=args.job_config, 
             connection_config_path=args.connection_config
         )
-        executor = JobExecutor(config)
+        job_type = config.job_data.get('job_type', 'grid_search') # デフォルトはgrid_search
+
+        if job_type == 'grid_search':
+            executor = GridSearchJobExecutor(config)
+        elif job_type == 'sequence':
+            executor = SequenceJobExecutor(config)
+        else:
+            raise ValueError(f"Unknown job_type: {job_type}")
+
         executor.run()
         logging.info("\n🎉 Verification job completed successfully!")
 

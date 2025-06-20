@@ -64,3 +64,7 @@ class Config:
     @property
     def job_config_data(self) -> dict:
         return self.job_data
+
+    @property
+    def placeholders(self) -> dict:
+        return self.job_data.get('placeholders')
