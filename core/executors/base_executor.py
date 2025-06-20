@@ -7,18 +7,17 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from ..config import Config
-from ..database import DatabaseManager
-from ..api_client import ComfyUI_APIClient
-from ..prompt_resolver import PromptResolver
+from ..interfaces import IServiceContainer, IDatabaseManager, IAPIClient, IPromptResolver
 
 logger = logging.getLogger(__name__)
 
 class BaseExecutor(abc.ABC):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, service_container: IServiceContainer):
         self.config = config
-        self.db = DatabaseManager()
-        self.api = ComfyUI_APIClient(self.config.server_address)
-        self.prompt_resolver = PromptResolver()
+        self.service_container = service_container
+        self.db = service_container.get_database_manager()
+        self.api = service_container.get_api_client()
+        self.prompt_resolver = service_container.get_prompt_resolver()
         self.results_images_dir = Path("results/images")
         self.results_images_dir.mkdir(parents=True, exist_ok=True)
         self.base_workflow = self._load_base_workflow()

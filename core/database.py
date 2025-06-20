@@ -2,8 +2,9 @@ import sqlite3
 import json
 from pathlib import Path
 from datetime import datetime
+from .interfaces import IDatabaseManager
 
-class DatabaseManager:
+class DatabaseManager(IDatabaseManager):
     def __init__(self, db_path: str = "results/index.sqlite"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

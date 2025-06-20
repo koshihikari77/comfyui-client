@@ -1,0 +1,160 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "comfyv"
+version = "2.0.0"
+description = "ComfyV - ComfyUI Verification Framework"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "ComfyV Development Team" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.9"
+
+# 基本依存関係
+dependencies = [
+    "pyyaml>=6.0.0",
+    "jinja2>=3.1.0",
+    "requests>=2.28.0",
+    "websocket-client>=1.4.0",
+]
+
+# オプション依存関係
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "responses>=0.22.0",
+    "freezegun>=1.2.0",
+    "factory-boy>=3.2.0",
+    "coverage[toml]>=7.0.0",
+    "pytest-flake8>=1.1.0",
+    "pytest-mypy>=0.10.0",
+    "pytest-benchmark>=4.0.0",
+]
+
+dev = [
+    "comfyv[test]",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+# Hatchling設定
+[tool.hatch.build.targets.wheel]
+packages = ["core"]
+
+# 特定のファイルも含める
+[tool.hatch.build.targets.wheel.force-include]
+"main.py" = "main.py"
+"configs" = "configs"
+"templates" = "templates"
+
+[project.urls]
+Homepage = "https://github.com/comfyv/comfyv"
+Repository = "https://github.com/comfyv/comfyv.git"
+Issues = "https://github.com/comfyv/comfyv/issues"
+
+# pytest設定
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "unit: ユニットテスト",
+    "integration: 統合テスト", 
+    "slow: 実行時間の長いテスト",
+    "mock: モックサービスを使用するテスト",
+]
+addopts = [
+    "--cov=core",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+    "-v",
+    "--tb=short",
+]
+
+# カバレッジ設定
+[tool.coverage.run]
+source = ["core"]
+omit = [
+    "tests/*",
+    "venv/*",
+    ".venv/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+]
+
+# Black設定
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort設定
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+# mypy設定
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true 

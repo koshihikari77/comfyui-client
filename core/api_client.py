@@ -5,10 +5,11 @@ import urllib.request
 import urllib.parse
 from typing import Optional
 import logging
+from .interfaces import IAPIClient
 
 logger = logging.getLogger(__name__)
 
-class ComfyUI_APIClient:
+class ComfyUI_APIClient(IAPIClient):
     def __init__(self, server_address: str, client_id: Optional[str] = None):
         self.server_address = server_address
         self.client_id = client_id or str(uuid.uuid4())

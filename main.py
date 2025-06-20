@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 
 from core.config import Config
+from core.service_container import ServiceContainer
+from core.mock_services import MockServiceContainer
 from core.executors.base_executor import BaseExecutor
 from core.executors.sequence_executor import SequenceJobExecutor
 from core.executors.grid_search_executor import GridSearchJobExecutor
@@ -39,6 +41,11 @@ def main():
         action="store_true",
         help="Enable verbose logging (DEBUG level)."
     )
+    parser.add_argument(
+        "--test-mode",
+        action="store_true",
+        help="Run in test mode with mock services (for development/testing)."
+    )
     args = parser.parse_args()
 
     # ロガーをセットアップ
@@ -51,12 +58,20 @@ def main():
             job_config_path=args.job_config, 
             connection_config_path=args.connection_config
         )
+        
+        # DIコンテナを初期化（テストモードかどうかで切り替え）
+        if args.test_mode:
+            logging.info("🧪 Running in TEST MODE with mock services")
+            service_container = MockServiceContainer()
+        else:
+            service_container = ServiceContainer(config)
+        
         job_type = config.job_data.get('job_type', 'grid_search') # デフォルトはgrid_search
 
         if job_type == 'grid_search':
-            executor = GridSearchJobExecutor(config)
+            executor = GridSearchJobExecutor(config, service_container)
         elif job_type == 'sequence':
-            executor = SequenceJobExecutor(config)
+            executor = SequenceJobExecutor(config, service_container)
         else:
             raise ValueError(f"Unknown job_type: {job_type}")
 
@@ -65,10 +80,13 @@ def main():
 
     except FileNotFoundError as e:
         logging.error(f"❌ File not found: {e}")
+        sys.exit(1)
     except (ValueError, TypeError, KeyError) as e:
         logging.error(f"❌ Configuration Error: {e}")
+        sys.exit(1)
     except Exception as e:
         logging.critical(f"❌ An unexpected error occurred: {e}", exc_info=True)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -4,10 +4,11 @@ import re
 from pathlib import Path
 import yaml
 import logging
+from .interfaces import IPromptResolver
 
 logger = logging.getLogger(__name__)
 
-class PromptResolver:
+class PromptResolver(IPromptResolver):
     def __init__(self, prompt_dir="prompts"):
         self.base_path = Path(prompt_dir)
         self._presets = self._load_definitions(self.base_path / "presets", ".yaml")
@@ -45,7 +46,7 @@ class PromptResolver:
             return template_string # エラー時は元文字列を返す
 
     def _resolve_presets(self, text: str, depth=0) -> str:
-        if depth > 10: # 無限再帰防止
+        if depth > 10:  # 無限再帰防止
             raise RecursionError("Preset resolution depth exceeded 10.")
         
         pattern = re.compile(r'<preset:(.*?)>')
@@ -54,12 +55,23 @@ class PromptResolver:
             return text
 
         key = match.group(1)
-        if key in self._presets:
-            # プリセットの値はリストなので、カンマで連結して文字列にする
-            replacement = ", ".join(self._presets[key])
+        # ドット記法（category.key）でネストされたプリセットにアクセス
+        parts = key.split('.')
+        preset_value = self._presets
+        
+        try:
+            for part in parts:
+                preset_value = preset_value[part]
+            
+            # プリセットの値をカンマで連結して文字列にする
+            if isinstance(preset_value, list):
+                replacement = ", ".join(str(item) for item in preset_value)
+            else:
+                replacement = str(preset_value)
+            
             # 再帰的に解決を続ける
             return self._resolve_presets(text.replace(match.group(0), replacement, 1), depth + 1)
-        else:
+        except (KeyError, TypeError):
             logger.warning(f"Preset <{key}> not found. Leaving it as is.")
             # 見つからない場合はそのままにして、次のマッチを探す
             return text[:match.end()] + self._resolve_presets(text[match.end():], depth)
