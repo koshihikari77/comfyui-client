@@ -23,18 +23,33 @@ class TestPromptResolver:
         presets_dir = prompt_dir / 'presets'
         presets_dir.mkdir()
         
-        # テスト用プリセット
-        character_preset = {
-            'characters': ['Alice', 'Bob', 'Charlie']
-        }
+        # アーキテクチャドキュメントの仕様: プリセットはリスト形式で定義
+        quality_preset = [
+            'masterpiece',
+            'best quality',
+            '8K'
+        ]
+        with open(presets_dir / 'quality.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(quality_preset, f)
+            
+        character_preset = [
+            '1girl',
+            'detailed beautiful face and eyes',
+            'detailed skin'
+        ]
         with open(presets_dir / 'character.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(character_preset, f)
-            
-        style_preset = {
-            'styles': ['anime', 'realistic', 'cartoon']
-        }
-        with open(presets_dir / 'style.yaml', 'w', encoding='utf-8') as f:
-            yaml.dump(style_preset, f)
+        
+        # サブディレクトリのプリセット
+        styles_dir = presets_dir / 'styles'
+        styles_dir.mkdir()
+        anime_preset = [
+            'anime style',
+            'cel shading',
+            'vibrant colors'
+        ]
+        with open(styles_dir / 'anime.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(anime_preset, f)
         
         # wildcards ディレクトリと内容を作成
         wildcards_dir = prompt_dir / 'wildcards'
@@ -58,9 +73,11 @@ class TestPromptResolver:
         resolver = PromptResolver(str(temp_prompt_dir))
         
         # プリセットが正しく読み込まれているか確認
+        assert 'quality' in resolver._presets
         assert 'character' in resolver._presets
-        assert 'style' in resolver._presets
-        assert resolver._presets['character']['characters'] == ['Alice', 'Bob', 'Charlie']
+        assert 'styles/anime' in resolver._presets
+        assert resolver._presets['quality'] == ['masterpiece', 'best quality', '8K']
+        assert resolver._presets['character'] == ['1girl', 'detailed beautiful face and eyes', 'detailed skin']
         
         # ワイルドカードが正しく読み込まれているか確認
         assert 'colors' in resolver._wildcards
@@ -88,9 +105,17 @@ class TestPromptResolver:
         resolver = PromptResolver(str(temp_prompt_dir))
         
         # プリセットが展開されることを確認
-        result = resolver.resolve("a <preset:character.characters> in anime style")
-        assert "Alice, Bob, Charlie" in result
-        assert "anime style" in result
+        result = resolver.resolve("<preset:quality>, <preset:character>")
+        assert "masterpiece, best quality, 8K" in result
+        assert "1girl, detailed beautiful face and eyes, detailed skin" in result
+    
+    def test_resolve_hierarchical_presets(self, temp_prompt_dir):
+        """階層プリセット解決のテスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        # サブディレクトリのプリセットが展開されることを確認
+        result = resolver.resolve("<preset:styles/anime>")
+        assert "anime style, cel shading, vibrant colors" in result
     
     def test_resolve_wildcards(self, temp_prompt_dir):
         """ワイルドカード解決のテスト"""
@@ -118,10 +143,10 @@ class TestPromptResolver:
         """プリセットとワイルドカードの組み合わせテスト"""
         resolver = PromptResolver(str(temp_prompt_dir))
         
-        result = resolver.resolve("a <preset:character.characters> wearing __colors__ clothes")
+        result = resolver.resolve("<preset:character>, wearing __colors__ clothes")
         
         # プリセットが展開されていることを確認
-        assert "Alice, Bob, Charlie" in result
+        assert "1girl, detailed beautiful face and eyes, detailed skin" in result
         
         # ワイルドカードが解決されていることを確認
         colors = ['red', 'blue', 'green', 'yellow']
@@ -132,10 +157,10 @@ class TestPromptResolver:
         """存在しないプリセットの処理テスト"""
         resolver = PromptResolver(str(temp_prompt_dir))
         
-        result = resolver.resolve("test <preset:nonexistent.key> text")
+        result = resolver.resolve("test <preset:nonexistent> text")
         
         # 存在しないプリセットはそのまま残ることを確認
-        assert "<preset:nonexistent.key>" in result
+        assert "<preset:nonexistent>" in result
     
     def test_resolve_nonexistent_wildcard(self, temp_prompt_dir):
         """存在しないワイルドカードの処理テスト"""
@@ -157,27 +182,29 @@ class TestPromptResolver:
     def test_recursive_preset_resolution(self, temp_prompt_dir):
         """再帰的プリセット解決のテスト"""
         # プリセット内にプリセットを含むテストケースを作成
-        recursive_preset = {
-            'base': ['<preset:character.characters>', 'extra']
-        }
+        recursive_preset = [
+            '<preset:character>',
+            'extra tag'
+        ]
         presets_dir = temp_prompt_dir / 'presets'
         with open(presets_dir / 'recursive.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(recursive_preset, f)
         
         resolver = PromptResolver(str(temp_prompt_dir))
         
-        result = resolver.resolve("<preset:recursive.base>")
+        result = resolver.resolve("<preset:recursive>")
         
         # 再帰的に解決されていることを確認
-        assert "Alice, Bob, Charlie" in result
-        assert "extra" in result
+        assert "1girl, detailed beautiful face and eyes, detailed skin" in result
+        assert "extra tag" in result
     
     def test_recursion_depth_limit(self, temp_prompt_dir):
         """再帰深度制限のテスト"""
         # 無限再帰を引き起こすプリセットを作成
-        infinite_preset = {
-            'loop': ['<preset:infinite.loop>', 'never_reached']
-        }
+        infinite_preset = [
+            '<preset:infinite>',
+            'never_reached'
+        ]
         presets_dir = temp_prompt_dir / 'presets'
         with open(presets_dir / 'infinite.yaml', 'w', encoding='utf-8') as f:
             yaml.dump(infinite_preset, f)
@@ -185,10 +212,10 @@ class TestPromptResolver:
         resolver = PromptResolver(str(temp_prompt_dir))
         
         # RecursionErrorが発生しないことを確認（エラーハンドリングされる）
-        result = resolver.resolve("<preset:infinite.loop>")
+        result = resolver.resolve("<preset:infinite>")
         
         # エラー時は元の文字列が返されることを確認
-        assert result == "<preset:infinite.loop>"
+        assert result == "<preset:infinite>"
     
     def test_error_handling_during_resolution(self, temp_prompt_dir):
         """解決中のエラーハンドリングテスト"""
@@ -212,17 +239,21 @@ class TestPromptResolver:
         # エラーログが呼ばれたことを確認
         mock_logger.error.assert_called()
     
-    def test_wildcard_with_empty_file(self, temp_prompt_dir):
-        """空のワイルドカードファイルの処理テスト"""
-        wildcards_dir = temp_prompt_dir / 'wildcards'
-        
-        # 空のファイルを作成
-        with open(wildcards_dir / 'empty.txt', 'w', encoding='utf-8') as f:
-            f.write("")
+    @patch('core.prompt_resolver.logger')
+    def test_invalid_preset_format_handling(self, mock_logger, temp_prompt_dir):
+        """不正なプリセット形式のハンドリングテスト"""
+        # dict形式（旧形式）のプリセットファイルを作成
+        presets_dir = temp_prompt_dir / 'presets'
+        invalid_preset = {
+            'characters': ['Alice', 'Bob']  # dict形式は非サポート
+        }
+        with open(presets_dir / 'invalid_format.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(invalid_preset, f)
         
         resolver = PromptResolver(str(temp_prompt_dir))
         
-        result = resolver.resolve("test __empty__ text")
+        # 警告ログが出力されることを確認
+        mock_logger.warning.assert_called()
         
-        # 空のワイルドカードはそのまま残ることを確認
-        assert "__empty__" in result 
+        # 空のリストとして扱われることを確認
+        assert resolver._presets['invalid_format'] == [] 
