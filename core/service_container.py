@@ -34,5 +34,5 @@ class ServiceContainer(IServiceContainer):
         """PromptResolverのシングルトンインスタンスを取得"""
         if self._prompt_resolver is None:
             logger.debug("Creating PromptResolver instance")
-            self._prompt_resolver = PromptResolver()
+            self._prompt_resolver = PromptResolver("configs/prompts")
         return self._prompt_resolver 
