@@ -3,3 +3,9 @@
 __pycache__/
 results/
 .DS_Store
+configs
+htmlcov
+.pytest_cache/
+uv.lock
+.benchmarks/
+=*
