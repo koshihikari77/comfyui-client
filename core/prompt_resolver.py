@@ -11,9 +11,11 @@ logger = logging.getLogger(__name__)
 class PromptResolver(IPromptResolver):
     def __init__(self, prompt_dir="prompts"):
         self.base_path = Path(prompt_dir)
+        logger.info(f"PromptResolver initializing with base_path: {self.base_path.absolute()}")
         self._presets = self._load_definitions(self.base_path / "presets", ".yaml")
         self._wildcards = self._load_definitions(self.base_path / "wildcards", ".txt")
-        logger.debug(f"Loaded {len(self._presets)} presets and {len(self._wildcards)} wildcards.")
+        logger.info(f"Loaded {len(self._presets)} presets: {list(self._presets.keys())}")
+        logger.info(f"Loaded {len(self._wildcards)} wildcards: {list(self._wildcards.keys())}")
 
     def _load_definitions(self, path: Path, extension: str) -> dict:
         definitions = {}
@@ -24,7 +26,13 @@ class PromptResolver(IPromptResolver):
             try:
                 if extension == '.yaml':
                     with open(file_path, 'r', encoding='utf-8') as f:
-                        definitions[key] = yaml.safe_load(f)
+                        data = yaml.safe_load(f)
+                        # アーキテクチャドキュメントの仕様: プリセットはリスト形式で定義される
+                        if isinstance(data, list):
+                            definitions[key] = data
+                        else:
+                            logger.warning(f"Preset file {file_path} should contain a list, got {type(data).__name__}")
+                            definitions[key] = []
                 elif extension == '.txt':
                     with open(file_path, 'r', encoding='utf-8') as f:
                         definitions[key] = [line.strip() for line in f if line.strip()]
@@ -55,22 +63,23 @@ class PromptResolver(IPromptResolver):
             return text
 
         key = match.group(1)
-        # ドット記法（category.key）でネストされたプリセットにアクセス
-        parts = key.split('.')
-        preset_value = self._presets
         
         try:
-            for part in parts:
-                preset_value = preset_value[part]
-            
-            # プリセットの値をカンマで連結して文字列にする
-            if isinstance(preset_value, list):
-                replacement = ", ".join(str(item) for item in preset_value)
+            # アーキテクチャドキュメントの仕様: 単純なキー名でアクセス
+            if key in self._presets:
+                preset_value = self._presets[key]
+                # プリセットの値をカンマで連結して文字列にする
+                if isinstance(preset_value, list):
+                    replacement = ", ".join(str(item) for item in preset_value)
+                else:
+                    replacement = str(preset_value)
+                
+                # 再帰的に解決を続ける
+                return self._resolve_presets(text.replace(match.group(0), replacement, 1), depth + 1)
             else:
-                replacement = str(preset_value)
-            
-            # 再帰的に解決を続ける
-            return self._resolve_presets(text.replace(match.group(0), replacement, 1), depth + 1)
+                logger.warning(f"Preset <{key}> not found. Leaving it as is.")
+                # 見つからない場合はそのままにして、次のマッチを探す
+                return text[:match.end()] + self._resolve_presets(text[match.end():], depth)
         except (KeyError, TypeError):
             logger.warning(f"Preset <{key}> not found. Leaving it as is.")
             # 見つからない場合はそのままにして、次のマッチを探す
