@@ -95,6 +95,38 @@ class MockPromptResolver(IPromptResolver):
         resolved = f"[MOCK_RESOLVED] {template_string}"
         logger.debug(f"Mock: Resolved '{template_string}' to '{resolved}'")
         return resolved
+    
+    def resolve_full(self, template: str, placeholders: dict | None = None) -> str:
+        # テスト用の簡単な実装
+        resolved = f"[MOCK_RESOLVED_FULL] {template}"
+        if placeholders:
+            resolved += f" [PLACEHOLDERS: {placeholders}]"
+        logger.debug(f"Mock: Resolved full '{template}' to '{resolved}'")
+        return resolved
+    
+    def expand_placeholders(self, template: str, placeholders: dict) -> list[str]:
+        # テスト用の簡単な実装 - プレースホルダーの組み合わせを展開
+        import re
+        import itertools
+        
+        placeholder_names = re.findall(r'{(.*?)}', template)
+        if not placeholder_names:
+            return [template]
+        
+        # 各プレースホルダーの値リストを取得
+        value_lists = [placeholders[name] for name in placeholder_names]
+        combinations = list(itertools.product(*value_lists))
+        
+        # 各組み合わせを元のテンプレートに埋め込んで最終的な文字列リストを作成
+        expanded_strings = []
+        for combo in combinations:
+            temp_string = template
+            for name, value in zip(placeholder_names, combo):
+                temp_string = temp_string.replace(f'{{{name}}}', str(value), 1)
+            expanded_strings.append(temp_string)
+        
+        logger.debug(f"Mock: Expanded '{template}' into {len(expanded_strings)} prompts")
+        return expanded_strings
 
 
 class MockServiceContainer(IServiceContainer):

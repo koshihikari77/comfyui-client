@@ -85,6 +85,69 @@ class PromptResolver(IPromptResolver):
             # 見つからない場合はそのままにして、次のマッチを探す
             return text[:match.end()] + self._resolve_presets(text[match.end():], depth)
 
+    def resolve_full(self, template: str, placeholders: dict | None = None) -> str:
+        """Preset → Placeholder → Wildcard の順で 1 つの文字列を解決"""
+        try:
+            # 1. プリセットを解決
+            resolved_presets = self._resolve_presets(template)
+            
+            # 2. プレースホルダーを解決（もし提供されていれば）
+            if placeholders:
+                resolved_placeholders = self._resolve_placeholders(resolved_presets, placeholders)
+            else:
+                resolved_placeholders = resolved_presets
+            
+            # 3. ワイルドカードを解決
+            final_string = self._resolve_wildcards(resolved_placeholders)
+            
+            # 4. カンマや空白を整形
+            return ", ".join(filter(None, [tag.strip() for tag in final_string.split(',')]))
+        except Exception as e:
+            logger.error(f"Failed to resolve full template: '{template}'", exc_info=True)
+            return template
+
+    def expand_placeholders(self, template: str, placeholders: dict) -> list[str]:
+        """プレースホルダーの全組合せを生成"""
+        import itertools
+        
+        # 1. テンプレートからプレースホルダー名を抽出
+        placeholder_names = re.findall(r'{(.*?)}', template)
+        if not placeholder_names:
+            return [template]
+        
+        # 2. 各プレースホルダーの値リストを取得
+        try:
+            value_lists = [placeholders[name] for name in placeholder_names]
+        except KeyError as e:
+            raise ValueError(f"Placeholder {{{e.args[0]}}} not found in placeholders definition.")
+        
+        # 3. 値の全組み合わせを生成
+        combinations = list(itertools.product(*value_lists))
+        
+        # 4. 各組み合わせを元のテンプレートに埋め込んで最終的な文字列リストを作成
+        expanded_strings = []
+        for combo in combinations:
+            temp_string = template
+            for name, value in zip(placeholder_names, combo):
+                temp_string = temp_string.replace(f'{{{name}}}', str(value), 1)
+            expanded_strings.append(temp_string)
+        
+        logger.debug(f"Expanded template '{template[:30]}...' into {len(expanded_strings)} prompts.")
+        return expanded_strings
+
+    def _resolve_placeholders(self, text: str, placeholders: dict) -> str:
+        """単一文字列のプレースホルダーをランダムに置換"""
+        placeholder_names = re.findall(r'{(.*?)}', text)
+        
+        for name in placeholder_names:
+            if name in placeholders and placeholders[name]:
+                replacement = random.choice(placeholders[name])
+                text = text.replace(f'{{{name}}}', str(replacement), 1)
+            else:
+                logger.warning(f"Placeholder {{{name}}} not found or empty.")
+        
+        return text
+
     def _resolve_wildcards(self, text: str) -> str:
         pattern = re.compile(r'__(.*?)__')
         

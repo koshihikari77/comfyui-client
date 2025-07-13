@@ -52,6 +52,16 @@ class IPromptResolver(ABC):
     @abstractmethod
     def resolve(self, template_string: str) -> str:
         pass
+    
+    @abstractmethod
+    def resolve_full(self, template: str, placeholders: dict | None = None) -> str:
+        """Preset → Placeholder → Wildcard の順で 1 つの文字列を解決"""
+        pass
+    
+    @abstractmethod
+    def expand_placeholders(self, template: str, placeholders: dict) -> list[str]:
+        """プレースホルダーの全組合せを生成"""
+        pass
 
 
 class IServiceContainer(ABC):

@@ -256,4 +256,169 @@ class TestPromptResolver:
         mock_logger.warning.assert_called()
         
         # 空のリストとして扱われることを確認
-        assert resolver._presets['invalid_format'] == [] 
+        assert resolver._presets['invalid_format'] == []
+
+
+class TestPromptResolverNewAPI:
+    """PromptResolverの新API（resolve_full, expand_placeholders）のテストケース"""
+    
+    @pytest.fixture
+    def temp_prompt_dir(self):
+        """プロンプト用の一時ディレクトリを作成"""
+        temp_dir = tempfile.mkdtemp()
+        prompt_dir = Path(temp_dir)
+        
+        # presets ディレクトリと内容を作成
+        presets_dir = prompt_dir / 'presets'
+        presets_dir.mkdir()
+        
+        quality_preset = ['masterpiece', 'best quality']
+        with open(presets_dir / 'quality.yaml', 'w', encoding='utf-8') as f:
+            yaml.dump(quality_preset, f)
+        
+        # wildcards ディレクトリと内容を作成
+        wildcards_dir = prompt_dir / 'wildcards'
+        wildcards_dir.mkdir()
+        
+        with open(wildcards_dir / 'colors.txt', 'w', encoding='utf-8') as f:
+            f.write('red\nblue\ngreen\n')
+        
+        yield prompt_dir
+        
+        # クリーンアップ
+        import shutil
+        shutil.rmtree(temp_dir)
+    
+    def test_resolve_full_without_placeholders(self, temp_prompt_dir):
+        """プレースホルダーなしでのresolve_full()テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        # プリセット + ワイルドカードの解決
+        result = resolver.resolve_full("<preset:quality>, __colors__ cat")
+        
+        # プリセットが展開されていることを確認
+        assert "masterpiece, best quality" in result
+        
+        # ワイルドカードが解決されていることを確認
+        colors = ['red', 'blue', 'green']
+        has_color = any(color in result for color in colors)
+        assert has_color
+        assert "cat" in result
+    
+    def test_resolve_full_with_placeholders(self, temp_prompt_dir):
+        """プレースホルダーありでのresolve_full()テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        placeholders = {
+            'style': ['anime', 'realistic'],
+            'pose': ['standing', 'sitting']
+        }
+        
+        # プリセット + プレースホルダー + ワイルドカードの解決
+        result = resolver.resolve_full(
+            "<preset:quality>, {style} {pose}, __colors__ dress", 
+            placeholders
+        )
+        
+        # プリセットが展開されていることを確認
+        assert "masterpiece, best quality" in result
+        
+        # プレースホルダーが解決されていることを確認
+        has_style = any(style in result for style in ['anime', 'realistic'])
+        has_pose = any(pose in result for pose in ['standing', 'sitting'])
+        assert has_style and has_pose
+        
+        # ワイルドカードが解決されていることを確認
+        colors = ['red', 'blue', 'green']
+        has_color = any(color in result for color in colors)
+        assert has_color
+        assert "dress" in result
+    
+    def test_resolve_full_error_handling(self, temp_prompt_dir):
+        """resolve_full()のエラーハンドリングテスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        # 存在しないプレースホルダーでも元の文字列を返すことを確認
+        result = resolver.resolve_full("test {nonexistent} text", {'other': ['value']})
+        assert "test {nonexistent} text" in result
+    
+    def test_expand_placeholders_simple(self, temp_prompt_dir):
+        """expand_placeholders()の基本テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        placeholders = {
+            'style': ['anime', 'realistic'],
+            'pose': ['standing', 'sitting']
+        }
+        
+        result = resolver.expand_placeholders("1girl, {style}, {pose}", placeholders)
+        
+        # 4つの組み合わせが生成されることを確認
+        expected = [
+            "1girl, anime, standing",
+            "1girl, anime, sitting", 
+            "1girl, realistic, standing",
+            "1girl, realistic, sitting"
+        ]
+        
+        assert len(result) == 4
+        assert set(result) == set(expected)
+    
+    def test_expand_placeholders_no_placeholders(self, temp_prompt_dir):
+        """プレースホルダーなしのexpand_placeholders()テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        result = resolver.expand_placeholders("simple text", {})
+        assert result == ["simple text"]
+    
+    def test_expand_placeholders_single_placeholder(self, temp_prompt_dir):
+        """単一プレースホルダーのexpand_placeholders()テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        placeholders = {'style': ['anime', 'realistic', 'cartoon']}
+        
+        result = resolver.expand_placeholders("1girl, {style} style", placeholders)
+        
+        expected = [
+            "1girl, anime style",
+            "1girl, realistic style", 
+            "1girl, cartoon style"
+        ]
+        
+        assert len(result) == 3
+        assert set(result) == set(expected)
+    
+    def test_expand_placeholders_missing_key(self, temp_prompt_dir):
+        """存在しないプレースホルダーのexpand_placeholders()テスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        placeholders = {'style': ['anime']}
+        
+        # 存在しないプレースホルダーでValueErrorが発生することを確認
+        with pytest.raises(ValueError, match="Placeholder {missing} not found"):
+            resolver.expand_placeholders("1girl, {style}, {missing}", placeholders)
+    
+    def test_expand_placeholders_complex(self, temp_prompt_dir):
+        """複雑なプレースホルダー組み合わせテスト"""
+        resolver = PromptResolver(str(temp_prompt_dir))
+        
+        placeholders = {
+            'char': ['1girl', '2girls'],
+            'hair': ['long hair', 'short hair'],
+            'color': ['black', 'brown']
+        }
+        
+        result = resolver.expand_placeholders(
+            "{char}, {hair}, {color} hair", 
+            placeholders
+        )
+        
+        # 2 * 2 * 2 = 8 の組み合わせが生成されることを確認
+        assert len(result) == 8
+        
+        # いくつかの期待される組み合わせを確認
+        assert "1girl, long hair, black hair" in result
+        assert "2girls, short hair, brown hair" in result
+        
+        # すべての組み合わせがユニークであることを確認
+        assert len(set(result)) == 8 

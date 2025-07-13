@@ -1,5 +1,4 @@
 import itertools
-import re
 import logging
 from .base_executor import BaseExecutor
 from ..interfaces import IServiceContainer
@@ -63,7 +62,7 @@ class GridSearchJobExecutor(BaseExecutor):
             new_values = []
             for template in var_def.get('values', []):
                 if isinstance(template, str) and '{' in template and '}' in template:
-                    expanded_prompts = self._expand_placeholders(template, placeholders)
+                    expanded_prompts = self.prompt_resolver.expand_placeholders(template, placeholders)
                     new_values.extend(expanded_prompts)
                 else:
                     new_values.append(template)
@@ -75,37 +74,6 @@ class GridSearchJobExecutor(BaseExecutor):
             
         return processed_vars
 
-    def _expand_placeholders(self, template: str, placeholders: dict) -> list[str]:
-        """
-        単一のプロンプトテンプレート文字列とプレースホルダー定義を受け取り、
-        全組み合わせの文字列リストを返す。
-        例: "A, {B}, {C}" -> ["A, b1, c1", "A, b1, c2", "A, b2, c1", "A, b2, c2"]
-        """
-        # 1. テンプレートからプレースホルダー名 (例: ['B', 'C']) を抽出
-        placeholder_names = re.findall(r'{(.*?)}', template)
-        if not placeholder_names:
-            return [template] # プレースホルダーがなければそのまま返す
-
-        # 2. 各プレースホルダーの値リストを取得
-        try:
-            value_lists = [placeholders[name] for name in placeholder_names]
-        except KeyError as e:
-            raise ValueError(f"Placeholder {{{e.args[0]}}} not found in placeholders definition.")
-
-        # 3. 値の全組み合わせを生成
-        # 例: [('b1', 'c1'), ('b1', 'c2'), ('b2', 'c1'), ('b2', 'c2')]
-        combinations = list(itertools.product(*value_lists))
-
-        # 4. 各組み合わせを元のテンプレートに埋め込んで最終的な文字列リストを作成
-        expanded_strings = []
-        for combo in combinations:
-            temp_string = template
-            for name, value in zip(placeholder_names, combo):
-                temp_string = temp_string.replace(f'{{{name}}}', str(value), 1)
-            expanded_strings.append(temp_string)
-            
-        logger.debug(f"Expanded template '{template[:30]}...' into {len(expanded_strings)} prompts.")
-        return expanded_strings
 
     def _generate_report(self, job_id: int):
         # 将来的にグリッド表示に対応させる必要がある
