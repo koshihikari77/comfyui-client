@@ -1,0 +1,134 @@
+"""
+Pydantic models for configuration validation
+"""
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import List, Dict, Any, Optional, Union
+from enum import Enum
+
+
+class JobTypeEnum(str, Enum):
+    """ジョブタイプの列挙型"""
+    GRID_SEARCH = "grid_search"
+    SEQUENCE = "sequence"
+
+
+class VariableModel(BaseModel):
+    """変数定義のモデル"""
+    node_id: int = Field(..., description="ワークフローのノードID")
+    input_name: str = Field(..., min_length=1, description="入力パラメータ名")
+    values: List[Any] = Field(..., min_length=1, description="値のリスト")
+
+    @field_validator('node_id')
+    @classmethod
+    def validate_node_id(cls, v):
+        if v <= 0:
+            raise ValueError("node_idは正の整数である必要があります")
+        return v
+
+
+class FixedParameterModel(BaseModel):
+    """固定パラメータのモデル"""
+    node_id: int = Field(..., description="ワークフローのノードID")
+    input_name: str = Field(..., min_length=1, description="入力パラメータ名")
+    value: Optional[Any] = Field(None, description="固定値（単一値）")
+    values: Optional[List[Any]] = Field(None, description="固定値（リスト形式）")
+
+    @field_validator('node_id')
+    @classmethod
+    def validate_node_id(cls, v):
+        if v <= 0:
+            raise ValueError("node_idは正の整数である必要があります")
+        return v
+
+    @model_validator(mode='after')
+    def validate_value_or_values(self):
+        """valueかvaluesのどちらか一つが必須"""
+        if self.value is None and self.values is None:
+            raise ValueError("valueまたはvaluesのどちらか一つは必須です")
+        if self.value is not None and self.values is not None:
+            raise ValueError("valueとvaluesは同時に指定できません")
+        return self
+
+
+class RandomParameterModel(BaseModel):
+    """ランダムパラメータのモデル"""
+    node_id: int = Field(..., description="ワークフローのノードID")
+    input_name: str = Field(..., min_length=1, description="入力パラメータ名")
+    min_value: Union[int, float] = Field(..., description="最小値")
+    max_value: Union[int, float] = Field(..., description="最大値")
+    type: str = Field(default="float", description="値の型")
+
+    @field_validator('node_id')
+    @classmethod
+    def validate_node_id(cls, v):
+        if v <= 0:
+            raise ValueError("node_idは正の整数である必要があります")
+        return v
+
+    @model_validator(mode='after')
+    def validate_range(self):
+        if self.min_value >= self.max_value:
+            raise ValueError("min_valueはmax_valueより小さい必要があります")
+        return self
+
+
+class PromptModel(BaseModel):
+    """プロンプト定義のモデル（シーケンス用）"""
+    template: str = Field(..., min_length=1, description="プロンプトテンプレート")
+    name: Optional[str] = Field(None, description="プロンプト名")
+
+
+class JobConfigModel(BaseModel):
+    """ジョブ設定のメインモデル"""
+    job_name: str = Field(..., min_length=1, description="ジョブ名")
+    job_type: JobTypeEnum = Field(default=JobTypeEnum.GRID_SEARCH, description="ジョブタイプ")
+    base_workflow: Optional[str] = Field(None, description="ベースワークフローファイル")
+    
+    # グリッドサーチ用
+    variables: List[VariableModel] = Field(default=[], description="変数定義")
+    placeholders: Dict[str, List[str]] = Field(default={}, description="プレースホルダー定義")
+    fixed_parameters: List[FixedParameterModel] = Field(default=[], description="固定パラメータ")
+    random_parameters: List[RandomParameterModel] = Field(default=[], description="ランダムパラメータ")
+    
+    # シーケンス用
+    prompts: List[PromptModel] = Field(default=[], description="プロンプト定義（シーケンス用）")
+
+    @model_validator(mode='after')
+    def validate_job_type_requirements(self):
+        """ジョブタイプに応じた必須フィールドをチェック"""
+        if self.job_type == JobTypeEnum.GRID_SEARCH:
+            if not self.base_workflow:
+                raise ValueError("grid_searchジョブではbase_workflowが必須です")
+            if not self.variables:
+                raise ValueError("grid_searchジョブではvariablesが必須です")
+        
+        elif self.job_type == JobTypeEnum.SEQUENCE:
+            if not self.prompts:
+                raise ValueError("sequenceジョブではpromptsが必須です")
+        
+        return self
+
+    @field_validator('placeholders')
+    @classmethod
+    def validate_placeholders(cls, v):
+        """プレースホルダーの値が空でないリストであることを確認"""
+        for key, values in v.items():
+            if not isinstance(values, list) or len(values) == 0:
+                raise ValueError(f"プレースホルダー '{key}' は空でないリストである必要があります")
+        return v
+
+
+class ConnectionConfigModel(BaseModel):
+    """接続設定のモデル"""
+    server_address: str = Field(..., min_length=1, description="ComfyUIサーバーアドレス")
+    timeout: Optional[int] = Field(default=30, gt=0, description="タイムアウト時間（秒）")
+    retry_count: Optional[int] = Field(default=3, ge=0, description="リトライ回数")
+
+    @field_validator('server_address')
+    @classmethod
+    def validate_server_address(cls, v):
+        """サーバーアドレスの基本的な形式チェック"""
+        if not (v.startswith('http://') or v.startswith('https://') or ':' in v):
+            raise ValueError("server_addressは有効なURL形式またはhost:port形式である必要があります")
+        return v

@@ -178,7 +178,7 @@ class TestMainIntegration:
         
         # 無効なジョブタイプエラーで終了することを確認
         assert result.returncode != 0
-        assert "Unknown job_type" in result.stderr
+        assert "Input should be 'grid_search' or 'sequence'" in result.stderr
     
     def test_command_line_argument_parsing(self):
         """コマンドライン引数の解析テスト"""
