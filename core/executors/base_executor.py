@@ -4,10 +4,10 @@ import os
 import copy
 import logging
 from pathlib import Path
-from jinja2 import Environment, FileSystemLoader
 
 from ..config import Config
 from ..interfaces import IServiceContainer, IDatabaseManager, IAPIClient, IPromptResolver
+from ..reporting import Reporter
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ class BaseExecutor(abc.ABC):
         self.db = service_container.get_database_manager()
         self.api = service_container.get_api_client()
         self.prompt_resolver = service_container.get_prompt_resolver()
+        self.reporter = Reporter()
         self.results_images_dir = Path("results/images")
         self.results_images_dir.mkdir(parents=True, exist_ok=True)
         self.base_workflow = self._load_base_workflow()
@@ -76,35 +77,25 @@ class BaseExecutor(abc.ABC):
         pass
 
     def _generate_report(self, job_id: int):
-        # レポート生成も将来的にグリッド表示に対応させる必要があるが、
-        # 今は単一変数の時と同じ表示方法で代用する
-        logger.info(f"📊 Generating report for job {job_id}...")
-        env = Environment(loader=FileSystemLoader('templates/'))
-        template = env.get_template('report.html.j2')
-
+        """新しいReportingモジュールを使用してレポート生成"""
         image_records = self.db.get_images_by_job_id(job_id)
         
-        # ひとまず最初の変数だけをレポートに表示する
-        first_variable = self.config.variables[0]
-        formatted_images = []
+        # データベースレコードを辞書形式に変換（sqlite3.Rowから）
+        image_dicts = []
         for record in image_records:
-            workflow = json.loads(record['workflow'])
-            # ワークフローから全ての変数値を取得して表示するのが理想だが、まずはシンプルに
-            variable_value = workflow[str(first_variable['node_id'])]['inputs'][first_variable['input_name']]
-            formatted_images.append({
-                'id': record['id'],
-                'filepath': os.path.relpath(record['filepath'], 'results').replace('\\', '/'),
-                'variable_value': variable_value
+            # sqlite3.Rowオブジェクトを辞書に変換
+            record_dict = dict(record)
+            image_dicts.append({
+                'id': record_dict['id'],
+                'filepath': record_dict['filepath'],
+                'workflow': record_dict['workflow'],
+                'status': record_dict.get('status', 'success')
             })
-
-        html_content = template.render(
-            job_name=self.config.job_name,
-            job_id=job_id,
-            images=formatted_images,
-            variable_name=first_variable['input_name']
-        )
         
-        report_path = Path("results") / f"report_job_{job_id}.html"
-        with open(report_path, "w", encoding='utf-8') as f:
-            f.write(html_content)
-        logger.info(f"✅ Report saved to: {report_path}")
+        # Reporterを使用してHTMLレポート生成
+        self.reporter.generate_html_report(
+            job_id=job_id,
+            job_name=self.config.job_name,
+            image_records=image_dicts,
+            variables=self.config.variables
+        )
