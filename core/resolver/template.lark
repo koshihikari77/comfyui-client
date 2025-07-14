@@ -1,0 +1,43 @@
+// PromptResolver V2 テンプレート文法定義
+// 設計書4.1および10.1に基づく実装
+
+?start: template
+
+// メインテンプレート
+template: (text | preset | placeholder | wildcard)*
+
+// プリセット式
+preset: "<preset:" key_expr ">"
+
+// プレースホルダー
+placeholder: "{" NAME "}"
+
+// ワイルドカード（高優先度）
+wildcard: WILDCARD
+
+// キー式（プリセット内のグループ指定）
+key_expr: group (operator group)*
+
+// 演算子を保持
+operator: PLUS | MINUS
+
+// 演算子の終端記号
+PLUS: "+"
+MINUS: "-"
+
+// グループ（name#subgroup形式）
+group: NAME ("#" NAME)?
+
+// 通常のテキスト
+text: TEXT+
+
+// 終端記号定義（設計書10.1参照）
+// 明示的優先度でWILDCARD > TEXTを保証
+WILDCARD.2: "__" /[A-Za-z0-9_\-\/]+/ "__"
+NAME: /[A-Za-z0-9_\-\/]+/
+TEXT.1: /([^<{}_]|_(?!_))+/ // 二重アンダースコアを除外、単独_は許可
+ESC_LT: /\\</             // エスケープされた <
+ESC_OCB: /\\{/            // エスケープされた {
+ESC_US: /\\__/            // エスケープされた __
+
+// 空白文字の処理（テンプレート内では空白を保持）
