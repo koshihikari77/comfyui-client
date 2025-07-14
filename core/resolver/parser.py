@@ -4,11 +4,13 @@ PromptResolver V2 TemplateParser実装
 設計書4.1および10.2に基づく実装
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pathlib import Path
 from lark import Lark, Transformer, Tree, Token
 from lark.exceptions import LarkError
 import logging
+import hashlib
+import threading
 
 from .ast import TemplateAST, ASTNode, Text, PresetExpr, Placeholder, Wildcard
 from .exceptions import ParseError, RecursionLimitError
@@ -118,6 +120,10 @@ class TemplateTransformer(Transformer):
 class TemplateParser:
     """テンプレート文字列をASTに変換するパーサー"""
     
+    # クラス変数でLarkインスタンスをキャッシュ
+    _parser_cache: Dict[str, Lark] = {}
+    _cache_lock = threading.Lock()
+    
     def __init__(self):
         # 文法ファイルのパス
         grammar_path = Path(__file__).parent / "template.lark"
@@ -126,12 +132,22 @@ class TemplateParser:
             with open(grammar_path, 'r', encoding='utf-8') as f:
                 grammar = f.read()
             
-            self.parser = Lark(
-                grammar,
-                parser='lalr',
-                transformer=TemplateTransformer(),
-                debug=False
-            )
+            # grammar contentのハッシュをキーとしてキャッシュ
+            grammar_hash = hashlib.md5(grammar.encode('utf-8')).hexdigest()
+            
+            with self._cache_lock:
+                if grammar_hash not in self._parser_cache:
+                    # Transformerは指定せず、Larkインスタンスのみキャッシュ
+                    self._parser_cache[grammar_hash] = Lark(
+                        grammar,
+                        parser='lalr',
+                        debug=False
+                    )
+                    logger.info(f"Created new Lark parser for grammar hash: {grammar_hash[:8]}")
+                else:
+                    logger.debug(f"Reusing cached Lark parser for grammar hash: {grammar_hash[:8]}")
+                
+                self.parser = self._parser_cache[grammar_hash]
             
         except FileNotFoundError:
             raise ParseError(f"Grammar file not found: {grammar_path}")
@@ -156,8 +172,12 @@ class TemplateParser:
             return []
         
         try:
-            # Larkで解析してASTに変換
-            ast = self.parser.parse(template)
+            # Larkで解析（Transformerなし）
+            tree = self.parser.parse(template)
+            
+            # 動的にTransformerを適用してASTに変換
+            transformer = TemplateTransformer()
+            ast = transformer.transform(tree)
             
             # 結果が直接ASTなのでそのまま返す
             if isinstance(ast, list):
