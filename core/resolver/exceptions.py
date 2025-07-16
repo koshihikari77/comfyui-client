@@ -12,10 +12,22 @@ class ResolverError(Exception):
 
 class ParseError(ResolverError):
     """テンプレート解析エラー"""
-    def __init__(self, message: str, template: str = "", position: int = -1):
+    def __init__(self, message: str, template: str = "", position: int = -1, line: int = -1, column: int = -1):
         super().__init__(message)
         self.template = template
         self.position = position
+        self.line = line
+        self.column = column
+        
+    def __str__(self):
+        """位置情報を含むエラーメッセージを生成"""
+        base_msg = super().__str__()
+        if self.line > 0 and self.column > 0:
+            return f"{base_msg} at line {self.line}, column {self.column}"
+        elif self.position >= 0:
+            return f"{base_msg} at position {self.position}"
+        else:
+            return base_msg
 
 
 class PresetNotFoundError(ResolverError):

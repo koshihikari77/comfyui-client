@@ -6,8 +6,11 @@ PromptResolver V2 ResolverContext定義
 
 from typing import Dict, List, Set, Any, Literal, Optional
 from random import Random
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PresetFile(BaseModel):
@@ -42,6 +45,18 @@ class PresetFile(BaseModel):
                 # その他の場合は空リスト
                 out[k] = []
         return out
+    
+    @model_validator(mode="before")
+    @classmethod
+    def set_version_from_format(cls, values):
+        """V1形式検出時にversionを自動設定"""
+        if isinstance(values, dict):
+            # contentsがV1形式（list）の場合、versionを1に設定
+            contents = values.get("contents")
+            if isinstance(contents, list) and "version" not in values:
+                values["version"] = 1
+                logger.info("Detected V1 preset format, setting version=1")
+        return values
 
 
 class ResolverContext(BaseModel):
