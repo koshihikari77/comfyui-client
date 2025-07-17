@@ -74,6 +74,8 @@ class ResolverContext(BaseModel):
     placeholders: Dict[str, List[str]] = {}
     locale: Literal[",", "、", ";"] = ","
     strict_level: Literal["soft", "warn", "error"] = "warn"  # エラー扱いポリシー
+    # Placeholder/Wildcard 再パース時の深度カウンタ（全ステージ共有）
+    reparse_depth: int = 0
     
     class Config:
         arbitrary_types_allowed = True
@@ -89,7 +91,8 @@ class ResolverContext(BaseModel):
             ignore_groups=set(),
             placeholders={},
             locale=",",
-            strict_level="warn"
+            strict_level="warn",
+            reparse_depth=0
         )
     
     def with_seed(self, seed: int) -> "ResolverContext":
@@ -112,3 +115,7 @@ class ResolverContext(BaseModel):
     def should_ignore_group(self, group: str) -> bool:
         """グループが無視対象かどうかチェック"""
         return group in self.ignore_groups
+    
+    def reset_reparse_depth(self) -> None:
+        """再パース深度カウンタをリセット（Phase4推奨：安全性向上）"""
+        self.reparse_depth = 0
