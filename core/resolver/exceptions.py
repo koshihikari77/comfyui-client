@@ -56,3 +56,10 @@ class RecursionLimitError(ResolverError):
     def __init__(self, message: str, depth: int = 0):
         super().__init__(message)
         self.depth = depth
+
+
+class TagFilterError(ResolverError):
+    """TagFilter処理中のエラー"""
+    def __init__(self, message: str, tag: str = ""):
+        super().__init__(message)
+        self.tag = tag
