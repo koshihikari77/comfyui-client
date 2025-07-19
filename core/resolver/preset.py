@@ -52,6 +52,10 @@ class PresetEvaluator:
                         result.append(TagLeaf(tags=OrderedSet()))
                     else:  # soft
                         result.append(TagLeaf(tags=OrderedSet()))
+                except ValueError as e:
+                    # ValueErrorは常に再発生（クロスプリセット演算エラーなど）
+                    logger.error(f"PresetEval error for key_expr='{node.key_expr}': {e}")
+                    raise
                 except Exception as e:
                     logger.error(f"PresetEval error for key_expr='{node.key_expr}': {e}")
                     if self.context.strict_level == "error":
@@ -113,23 +117,23 @@ class PresetEvaluator:
         while i < len(tokens) - 1:
             operator = tokens[i].strip()
             group_token = tokens[i + 1].strip()
-            
+
             if operator in ["+", "-"] and group_token:
-                preset_name, group_name = self._parse_group_token(group_token)
-                
                 # クロスプリセット演算の検出
                 if '#' in group_token:
                     # 明示的にプリセット名が指定された場合
-                    if preset_name != expected_preset:
-                        raise ValueError(f"Cross-preset operations are undefined: expected '{expected_preset}', got '{preset_name}' in '{key_expr}'")
-                else:
-                    # グループ指定なしの場合は別プリセットとしてクロスプリセット演算エラー
+                    raise ValueError(f"Cross-preset operations are undefined: expected '{expected_preset}', got '{preset_name}' in '{key_expr}'")
+                
+                elif not group_name:
                     raise ValueError(f"Cross-preset operations are undefined: '{group_token}' appears to be a different preset in '{key_expr}'")
                 
-                operations.append((preset_name, group_name, operator))
-            elif operator and not group_token:
-                # "+ -" のような連続演算子エラー
+                elif  (group_token in ["+", "-"]):
+                    # "+ -" のような連続演算子エラー
+                    raise ValueError(f"Invalid key_expr: consecutive operators near '{operator}' in '{key_expr}'")
+            elif not group_token:
                 raise ValueError(f"Invalid key_expr: consecutive operators near '{operator}' in '{key_expr}'")
+
+            operations.append((preset_name, group_token, operator))
             
             i += 2
         

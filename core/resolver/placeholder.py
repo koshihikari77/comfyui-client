@@ -252,8 +252,8 @@ class PlaceholderSubstitutor:
         # Placeholder構文: {xxx} （改善：内容を厳密チェック）
         if re.search(r'\{[A-Za-z0-9_]+\}', choice):
             return True
-        # Wildcard構文: __xxx__ （改善：完全一致チェック）
-        if re.fullmatch(r'__[A-Za-z0-9_-]+__', choice):
+        # Wildcard構文: __xxx__ （改善：部分一致チェック）
+        if re.search(r'__[A-Za-z0-9_-]+__', choice):
             return True
         return False
     

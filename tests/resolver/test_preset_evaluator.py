@@ -322,8 +322,19 @@ class TestTokenization:
     """トークン化詳細テスト"""
     
     def setup_method(self):
+        presets = {
+            "quality": PresetFile(
+                version=2,
+                contents={
+                    "base": ["high quality", "detailed"],
+                    "hdr": ["hdr", "vibrant colors"],
+                    "unwanted": ["blurry", "low quality"]
+                }
+            )
+        }
+        
         self.context = ResolverContext(
-            presets={},
+            presets=presets,
             wildcards={},
             rng=Random(),
             strict_level="warn"

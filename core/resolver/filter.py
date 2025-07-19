@@ -9,7 +9,7 @@ import logging
 from typing import Set
 from ordered_set import OrderedSet
 
-from .ast import TemplateAST, ASTNode, TagLeaf
+from .ast import TemplateAST, ASTNode, TagLeaf, Text
 from .context import ResolverContext
 from .exceptions import TagFilterError
 
@@ -62,7 +62,7 @@ class TagFilter:
     
     def _collect_tagset_from_ast(self, ast: TemplateAST) -> OrderedSet[str]:
         """
-        TagLeafノードのみからタグを収集
+        TagLeafノードからタグを収集
         
         Args:
             ast: 入力AST
@@ -76,8 +76,13 @@ class TagFilter:
             if isinstance(node, TagLeaf):
                 # TagLeaf.tagsをOrderedSetに統合
                 result.update(node.tags)
+            elif isinstance(node, Text):
+                # Textノードは分割せず、そのまま単一要素として追加
+                result.add(node.value)
+            # その他のノードは無視
         
         return result
+    
     
     def _normalize_tag(self, tag: str) -> str:
         """

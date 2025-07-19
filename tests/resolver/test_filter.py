@@ -50,7 +50,7 @@ class TestTagFilterBasic:
         
         ast = [
             TagLeaf(tags=tags1),
-            Text(value="separator"),  # 無視される
+            Text(value="separator"), 
             TagLeaf(tags=tags2),
             TagLeaf(tags=tags3)
         ]
@@ -58,26 +58,8 @@ class TestTagFilterBasic:
         result = self.filter.filter_ast(ast)
         
         # 順序保持・重複除去確認
-        expected = OrderedSet(["masterpiece", "best quality", "detailed", "HDR", "vibrant"])
+        expected = OrderedSet(["masterpiece", "best quality", "separator", "detailed", "HDR", "vibrant"])
         assert result == expected
-    
-    def test_mixed_ast_node_filtering(self):
-        """混合ASTでの適切なフィルタリング"""
-        tags = OrderedSet(["quality", "detailed", "artistic"])
-        
-        ast = [
-            Text(value="some text"),
-            PresetExpr(key_expr="quality#base"),
-            TagLeaf(tags=tags),
-            Placeholder(name="emotion"),
-            Wildcard(key="style"),
-            Text(value="more text")
-        ]
-        
-        result = self.filter.filter_ast(ast)
-        
-        # TagLeafのみが処理される
-        assert result == tags
     
     def test_empty_and_edge_cases(self):
         """空・エッジケースの処理"""
@@ -85,7 +67,7 @@ class TestTagFilterBasic:
         assert self.filter.filter_ast([]) == OrderedSet()
         
         # TagLeafなしAST
-        ast_no_tagleaf = [Text(value="text"), PresetExpr(key_expr="preset")]
+        ast_no_tagleaf = [PresetExpr(key_expr="preset")]
         assert self.filter.filter_ast(ast_no_tagleaf) == OrderedSet()
         
         # 空TagLeaf

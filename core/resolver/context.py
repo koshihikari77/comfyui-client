@@ -22,7 +22,7 @@ class PresetFile(BaseModel):
     version: Literal[1, 2] = 2  # 無指定なら v2 扱い
     description: Optional[str] = None
     metadata: Dict[str, Any] = {}
-    contents: Dict[str, List[str]]  # 正規化後
+    contents: Dict[str, Any]  # 正規化後（V2形式ネスト構造対応）
     
     @field_validator("contents", mode="before")
     @classmethod
@@ -40,6 +40,9 @@ class PresetFile(BaseModel):
                 out[k] = [p.strip() for p in parts if p.strip()]
             elif isinstance(val, list):
                 # リストの場合はそのまま
+                out[k] = val
+            elif isinstance(val, dict):
+                # V2形式ネスト構造の場合：辞書のまま保持
                 out[k] = val
             else:
                 # その他の場合は空リスト

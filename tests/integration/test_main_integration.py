@@ -8,6 +8,7 @@ import subprocess
 import sys
 import json
 import yaml
+import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -213,4 +214,148 @@ class TestMainIntegration:
         assert result.returncode == 0
         # DEBUGレベルのログが出力されていることを確認
         output = result.stderr
-        assert "DEBUG" in output 
+        assert "DEBUG" in output
+    
+    def test_main_with_v2_enabled(self, integration_job_config, integration_connection_config):
+        """V2有効時のメイン処理テスト"""
+        main_path = Path(__file__).resolve().parent.parent.parent / 'main.py'
+        
+        # V2を有効にしてコマンド実行
+        cmd = [
+            sys.executable, str(main_path),
+            '--job-config', str(integration_job_config),
+            '--connection-config', str(integration_connection_config),
+            '--test-mode',
+            '--verbose'
+        ]
+        
+        # 環境変数でV2を有効化
+        env = os.environ.copy()
+        env['PROMPT_RESOLVER_V2'] = 'true'
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, 
+                              cwd=main_path.parent, env=env)
+        
+        assert result.returncode == 0, f"Process failed with stderr: {result.stderr}"
+        
+        # V2が有効になっていることを確認
+        output = result.stderr
+        assert "Running in TEST MODE with mock services" in output
+        assert "Verification job completed successfully!" in output
+        # V2ログメッセージが出力されていることを確認
+        assert "PromptResolverV2 pipeline enabled" in output or "🚀" in output
+    
+    def test_main_v2_complex_prompts(self, integration_temp_dir, integration_connection_config):
+        """V2固有機能を使った複雑なプロンプトテスト"""
+        # V2固有機能を含むシーケンスジョブ設定を作成
+        v2_sequence_config_data = {
+            'job_name': 'v2_complex_sequence_test',
+            'job_type': 'sequence',
+            'prompts': [
+                {
+                    'template': '[@style:anime] girl with __emotion__',
+                    'runs': 1
+                },
+                {
+                    'template': '[@quality:high], __character__ feeling happy',
+                    'runs': 1
+                }
+            ]
+        }
+        
+        # プロンプト設定ディレクトリを作成
+        prompts_dir = integration_temp_dir / 'prompts'
+        prompts_dir.mkdir()
+        
+        # プリセットファイル作成
+        presets_dir = prompts_dir / 'presets'
+        presets_dir.mkdir()
+        
+        preset_data = {
+            "version": 2,
+            "presets": {
+                "style": {
+                    "anime": ["anime style", "manga style"]
+                },
+                "quality": {
+                    "high": ["masterpiece", "best quality"]
+                }
+            }
+        }
+        
+        with open(presets_dir / 'test_presets.json', 'w', encoding='utf-8') as f:
+            json.dump(preset_data, f, ensure_ascii=False, indent=2)
+        
+        # ワイルドカードファイル作成
+        wildcards_dir = prompts_dir / 'wildcards'
+        wildcards_dir.mkdir()
+        
+        with open(wildcards_dir / 'emotion.txt', 'w', encoding='utf-8') as f:
+            f.write("happy\nsad\nangry\n")
+        
+        with open(wildcards_dir / 'character.txt', 'w', encoding='utf-8') as f:
+            f.write("girl\nboy\nwoman\n")
+        
+        v2_sequence_config_path = integration_temp_dir / 'v2_sequence_config.yaml'
+        with open(v2_sequence_config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(v2_sequence_config_data, f, default_flow_style=False)
+        
+        main_path = Path(__file__).resolve().parent.parent.parent / 'main.py'
+        
+        cmd = [
+            sys.executable, str(main_path),
+            '--job-config', str(v2_sequence_config_path),
+            '--connection-config', str(integration_connection_config),
+            '--test-mode'
+        ]
+        
+        # 環境変数でV2を有効化し、プロンプトディレクトリを指定
+        env = os.environ.copy()
+        env['PROMPT_RESOLVER_V2'] = 'true'
+        env['PROMPTS_CONFIG_DIR'] = str(prompts_dir)
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, 
+                              cwd=main_path.parent, env=env)
+        
+        assert result.returncode == 0, f"Process failed with stderr: {result.stderr}"
+        output = result.stderr
+        assert "Verification job completed successfully!" in output
+        # V2が使用されていることを確認
+        assert "PromptResolverV2 pipeline enabled" in output or "🚀" in output
+    
+    def test_main_v1_v2_switch_comparison(self, integration_job_config, integration_connection_config):
+        """V1/V2切替比較テスト"""
+        main_path = Path(__file__).resolve().parent.parent.parent / 'main.py'
+        
+        base_cmd = [
+            sys.executable, str(main_path),
+            '--job-config', str(integration_job_config),
+            '--connection-config', str(integration_connection_config),
+            '--test-mode'
+        ]
+        
+        # V1で実行
+        env_v1 = os.environ.copy()
+        env_v1['PROMPT_RESOLVER_V2'] = 'false'
+        
+        result_v1 = subprocess.run(base_cmd, capture_output=True, text=True, 
+                                  cwd=main_path.parent, env=env_v1)
+        
+        # V2で実行
+        env_v2 = os.environ.copy()
+        env_v2['PROMPT_RESOLVER_V2'] = 'true'
+        
+        result_v2 = subprocess.run(base_cmd, capture_output=True, text=True, 
+                                  cwd=main_path.parent, env=env_v2)
+        
+        # 両方とも成功することを確認
+        assert result_v1.returncode == 0, f"V1 failed with stderr: {result_v1.stderr}"
+        assert result_v2.returncode == 0, f"V2 failed with stderr: {result_v2.stderr}"
+        
+        # 両方とも正常に完了することを確認
+        assert "Verification job completed successfully!" in result_v1.stderr
+        assert "Verification job completed successfully!" in result_v2.stderr
+        
+        # V1とV2で異なるログメッセージが出力されることを確認
+        assert "PromptResolver V1 (legacy) mode" in result_v1.stderr or "📊" in result_v1.stderr
+        assert "PromptResolverV2 pipeline enabled" in result_v2.stderr or "🚀" in result_v2.stderr 

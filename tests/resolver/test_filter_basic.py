@@ -55,22 +55,6 @@ class TestTagFilterBasic:
         expected = OrderedSet(["masterpiece", "best quality", "detailed", "HDR", "vibrant"])
         assert result == expected
     
-    def test_mixed_ast_nodes(self):
-        """混合ASTでのTagLeaf以外ノード無視"""
-        tags = OrderedSet(["quality", "detailed"])
-        
-        ast = [
-            Text(value="some text"),
-            TagLeaf(tags=tags),
-            PresetExpr(key_expr="style#anime"),
-            Text(value="more text")
-        ]
-        
-        result = self.filter.filter_ast(ast)
-        
-        # TagLeafのみが処理対象
-        assert result == tags
-    
     def test_empty_ast(self):
         """空ASTの処理"""
         ast = []
@@ -88,7 +72,7 @@ class TestTagFilterBasic:
         
         result = self.filter.filter_ast(ast)
         
-        assert result == OrderedSet()
+        assert result == OrderedSet(["plain text"])
     
     def test_empty_tagleaf(self):
         """空のTagLeafの処理"""

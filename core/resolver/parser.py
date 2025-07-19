@@ -250,8 +250,12 @@ class TemplateParser:
         Returns:
             bool: 妥当な場合True、そうでなければFalse
         """
-        try:
-            self.parse(template)
+        if not template:
             return True
-        except (ParseError, RecursionLimitError):
+        
+        try:
+            # Larkパーサーによる構文チェックのみ（AST変換なし）
+            self.parser.parse(template)
+            return True
+        except (LarkError, Exception):
             return False
