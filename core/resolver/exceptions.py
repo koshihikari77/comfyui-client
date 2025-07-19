@@ -63,3 +63,10 @@ class TagFilterError(ResolverError):
     def __init__(self, message: str, tag: str = ""):
         super().__init__(message)
         self.tag = tag
+
+
+class PromptFormatterError(ResolverError):
+    """PromptFormatter処理中のエラー"""
+    def __init__(self, message: str, tagset_length: int = 0):
+        super().__init__(message)
+        self.tagset_length = tagset_length
