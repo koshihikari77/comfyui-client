@@ -55,9 +55,13 @@ class RandomParameterModel(BaseModel):
     """ランダムパラメータのモデル"""
     node_id: int = Field(..., description="ワークフローのノードID")
     input_name: str = Field(..., min_length=1, description="入力パラメータ名")
-    min_value: Union[int, float] = Field(..., description="最小値")
-    max_value: Union[int, float] = Field(..., description="最大値")
     type: str = Field(default="float", description="値の型")
+    
+    # 範囲指定用（type: int用）
+    range: Optional[List[Union[int, float]]] = Field(None, description="値の範囲 [min, max]")
+    
+    # 選択肢指定用（type: choice用）
+    values: Optional[List[Union[int, float, str]]] = Field(None, description="選択肢のリスト")
 
     @field_validator('node_id')
     @classmethod
@@ -67,9 +71,17 @@ class RandomParameterModel(BaseModel):
         return v
 
     @model_validator(mode='after')
-    def validate_range(self):
-        if self.min_value >= self.max_value:
-            raise ValueError("min_valueはmax_valueより小さい必要があります")
+    def validate_parameters(self):
+        if self.type == 'choice':
+            if not self.values:
+                raise ValueError("type='choice'の場合、valuesは必須です")
+        elif self.type == 'int':
+            if not self.range:
+                raise ValueError("type='int'の場合、rangeは必須です")
+            if len(self.range) != 2:
+                raise ValueError("rangeは[min, max]の形式で指定してください")
+            if self.range[0] >= self.range[1]:
+                raise ValueError("range[0]はrange[1]より小さい必要があります")
         return self
 
 

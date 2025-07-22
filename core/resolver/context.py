@@ -34,16 +34,19 @@ class PresetFile(BaseModel):
         
         out = {}
         for k, val in v.items():
+            # キーを文字列に変換（数値キー対応）
+            str_key = str(k)
+            
             if isinstance(val, str):
                 # 文字列の場合はカンマ・読点で分割
                 parts = re.split(r"[,、]", val)
-                out[k] = [p.strip() for p in parts if p.strip()]
+                out[str_key] = [p.strip() for p in parts if p.strip()]
             elif isinstance(val, list):
                 # リストの場合はそのまま
-                out[k] = val
+                out[str_key] = val
             elif isinstance(val, dict):
                 # V2形式ネスト構造の場合：辞書のまま保持
-                out[k] = val
+                out[str_key] = val
             else:
                 # その他の場合は空リスト
                 out[k] = []

@@ -32,7 +32,7 @@ class ServiceContainer(IServiceContainer):
             self._api_client = ComfyUI_APIClient(self.config.server_address)
         return self._api_client
     
-    def get_prompt_resolver(self, use_v2: bool = None) -> IPromptResolver:
+    def get_prompt_resolver(self, use_v2: bool = True) -> IPromptResolver:
         """
         PromptResolverのシングルトンインスタンスを取得
         

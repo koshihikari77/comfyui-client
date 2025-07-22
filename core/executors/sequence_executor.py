@@ -53,6 +53,7 @@ class SequenceJobExecutor(BaseExecutor):
         
         # 3. プロンプトを解決
         resolved_prompt = self.prompt_resolver.resolve(template)
+        logger.info(f" resolved prompt: '{resolved_prompt}...'")
         # ★プロンプトを適用するノードIDと入力名をconfigから取得する必要がある
         #   prompt_target: {node_id: 149, input_name: "text"} のような設定を推奨
         prompt_target = self.config.job_data.get('prompt_target')
