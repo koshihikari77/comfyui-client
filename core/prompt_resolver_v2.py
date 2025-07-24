@@ -147,7 +147,7 @@ class PromptResolverV2(IPromptResolver):
         メインの解決メソッド（sampleモード）
         
         6ステージパイプライン実行:
-        Parse → PresetEval → Placeholder → Wildcard → Filter → Format
+        Parse → PresetEval(統合) → Placeholder → Wildcard → Filter → Format
         
         Args:
             template_string: 解決するテンプレート文字列
@@ -161,16 +161,19 @@ class PromptResolverV2(IPromptResolver):
             # ① Parse
             ast = self.parser.parse(template_string)
             
-            # ② PresetEval
+            # ② PresetEval (ネスト処理統合済み)
             ast = self.preset_evaluator.evaluate_ast(ast)
             
-            # ③ Placeholder (sampleモード)
+            # ③ PresetSubst (統合によりスキップ)
+            # ast = self.preset_substitutor.substitute_ast(ast)
+            
+            # ④ Placeholder (sampleモード)
             ast = self.placeholder_substitutor.substitute_ast(ast)
             
-            # ④ Wildcard
+            # ⑤ Wildcard
             ast = self.wildcard_substitutor.substitute_ast(ast)
             
-            # ⑤ Filter
+            # ⑥ Filter
             tagset = self.tag_filter.filter_ast(ast)
             
             #TagSetが空の場合の処理（soft/warnレベル対応）
@@ -178,7 +181,7 @@ class PromptResolverV2(IPromptResolver):
                 logger.debug(f"Empty TagSet for template: '{template_string}', returning original")
                 return template_string
             
-            # ⑥ Format
+            # ⑦ Format
             result = self.formatter.format_tagset(tagset)
             
             logger.debug(f"V2 resolved: '{result[:50]}...'")
@@ -238,10 +241,13 @@ class PromptResolverV2(IPromptResolver):
                 # ① Parse
                 ast = self.parser.parse(template)
                 
-                # ② PresetEval
+                # ② PresetEval (ネスト処理統合済み)
                 ast = self.preset_evaluator.evaluate_ast(ast)
                 
-                # ③ Placeholder (expandモード)
+                # ③ PresetSubst (統合によりスキップ)
+                # ast = self.preset_substitutor.substitute_ast(ast)
+                
+                # ④ Placeholder (expandモード)
                 ast_result = self.placeholder_substitutor.substitute_ast(ast)
                 
                 # expandモードの場合、listが返される可能性がある
@@ -250,16 +256,16 @@ class PromptResolverV2(IPromptResolver):
                 else:
                     ast_list = [ast_result]
                 
-                # 各ASTに対して④⑤⑥を実行
+                # 各ASTに対して⑤⑥⑦を実行
                 results = []
                 for ast in ast_list:
-                    # ④ Wildcard
+                    # ⑤ Wildcard
                     ast = self.wildcard_substitutor.substitute_ast(ast)
                     
-                    # ⑤ Filter
+                    # ⑥ Filter
                     tagset = self.tag_filter.filter_ast(ast)
                     
-                    # ⑥ Format
+                    # ⑦ Format
                     result = self.formatter.format_tagset(tagset)
                     results.append(result)
                 
@@ -297,7 +303,7 @@ class PromptResolverV2(IPromptResolver):
         """パイプライン情報取得（デバッグ用）"""
         return {
             "version": "2.0",
-            "stages": ["Parse", "PresetEval", "Placeholder", "Wildcard", "Filter", "Format"],
+            "stages": ["Parse", "PresetEval(統合)", "Placeholder", "Wildcard", "Filter", "Format"],
             "presets_count": len(self.context.presets),
             "wildcards_count": len(self.context.wildcards),
             "locale": self.context.locale,

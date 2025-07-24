@@ -9,11 +9,14 @@ import logging
 from typing import List, Optional, Tuple, Dict
 from ordered_set import OrderedSet
 
-from .ast import TemplateAST, ASTNode, PresetExpr, TagLeaf
+from .ast import TemplateAST, ASTNode, PresetExpr, TagLeaf, Text
 from .context import ResolverContext
-from .exceptions import PresetNotFoundError
+from .exceptions import PresetNotFoundError, RecursionLimitError
 
 logger = logging.getLogger(__name__)
+
+# PlaceholderとWildcardと同じ再帰深度制限
+MAX_DEPTH = 20
 
 
 class PresetEvaluator:
@@ -233,4 +236,141 @@ class PresetEvaluator:
             if self.context.should_ignore_group(group_name):
                 return OrderedSet()  # 無視対象グループは空集合
             
-            return OrderedSet(preset_file.contents[group_name])
+            # 配列の各要素に対して再帰的にpreset展開を実行
+            final_tags = OrderedSet()
+            for tag in preset_file.contents[group_name]:
+                if self._needs_reparse(tag):
+                    try:
+                        expanded_tags = self._parse_and_evaluate_recursive(tag)
+                        final_tags.update(expanded_tags)
+                    except RecursionLimitError:
+                        # RecursionLimitErrorは常にre-raise
+                        raise
+                    except Exception as e:
+                        logger.error(f"Failed to resolve nested preset '{tag}': {e}")
+                        if self.context.strict_level == "error":
+                            raise
+                        # warn/softの場合は元タグを追加
+                        final_tags.add(tag)
+                else:
+                    final_tags.add(tag)
+            
+            return final_tags
+    
+    def _needs_reparse(self, tag: str) -> bool:
+        """
+        preset構文が含まれているかチェック（PresetSubstitutorから移植）
+        
+        Args:
+            tag: チェック対象の文字列
+            
+        Returns:
+            <preset:xxx>構文が含まれている場合True
+        """
+        return '<preset:' in tag and '>' in tag
+    
+    def _parse_and_evaluate_recursive(self, tag: str) -> OrderedSet[str]:
+        """
+        タグ内のpreset構文を再帰的に展開（Parser使用版）
+        
+        Args:
+            tag: 展開対象のタグ文字列
+            
+        Returns:
+            展開済みTagSet
+            
+        Raises:
+            RecursionLimitError: 再帰深度超過の場合
+        """
+        try:
+            # 再帰深度管理
+            self.context.reparse_depth += 1
+            if self.context.reparse_depth > MAX_DEPTH:
+                raise RecursionLimitError(
+                    f"Preset reparse depth exceeded {MAX_DEPTH}",
+                    depth=self.context.reparse_depth
+                )
+            
+            # TemplateParserでAST化
+            from .parser import TemplateParser
+            parser = TemplateParser()
+            current_ast = parser.parse(tag)
+            
+            # whileループで収束まで繰り返し処理（多段ネスト対応）
+            max_iterations = MAX_DEPTH
+            iteration = 0
+            
+            while self._ast_needs_reparse(current_ast) and iteration < max_iterations:
+                iteration += 1
+                
+                # ASTを走査してPresetExprを展開
+                new_ast = []
+                for node in current_ast:
+                    if isinstance(node, PresetExpr):
+                        try:
+                            # PresetExprを展開
+                            expanded_tags = self.parse_key_expr(node.key_expr)
+                            # 展開結果をTextノードとして追加
+                            if expanded_tags:
+                                expanded_text = ', '.join(expanded_tags)
+                                from .ast import Text
+                                new_ast.append(Text(value=expanded_text))
+                        except Exception as e:
+                            logger.warning(f"Failed to expand preset '{node.key_expr}': {e}")
+                            if self.context.strict_level == "error":
+                                raise
+                            # エラー時は元のPresetExprを保持
+                            new_ast.append(node)
+                    else:
+                        new_ast.append(node)
+                
+                current_ast = new_ast
+                
+                # 新しいASTから文字列を再構築してパース
+                if self._ast_needs_reparse(current_ast):
+                    reconstructed = self._reconstruct_from_ast(current_ast)
+                    current_ast = parser.parse(reconstructed)
+            
+            # 反復制限に達した場合はRecursionLimitError
+            if iteration >= max_iterations and self._ast_needs_reparse(current_ast):
+                raise RecursionLimitError(
+                    f"Preset expansion iteration limit exceeded {max_iterations}",
+                    depth=iteration
+                )
+            
+            # 最終ASTからTagSetを構築
+            return self._collect_tags_from_ast(current_ast)
+            
+        finally:
+            self.context.reparse_depth -= 1
+    
+    def _ast_needs_reparse(self, ast) -> bool:
+        """ASTにPresetExprが含まれているかチェック"""
+        from .ast import PresetExpr
+        return any(isinstance(node, PresetExpr) for node in ast)
+    
+    def _reconstruct_from_ast(self, ast) -> str:
+        """ASTから文字列を再構築"""
+        parts = []
+        for node in ast:
+            if hasattr(node, 'value'):
+                parts.append(node.value)
+            elif hasattr(node, 'key_expr'):
+                parts.append(f'<preset:{node.key_expr}>')
+            else:
+                parts.append(str(node))
+        return ''.join(parts)
+    
+    def _collect_tags_from_ast(self, ast) -> OrderedSet[str]:
+        """ASTからタグを収集"""
+        final_tags = OrderedSet()
+        for node in ast:
+            if hasattr(node, 'value'):
+                # Textノードの場合は分割して追加
+                text = node.value.strip()
+                if text:
+                    tags = [t.strip() for t in text.split(',') if t.strip()]
+                    final_tags.update(tags)
+        return final_tags
+
+

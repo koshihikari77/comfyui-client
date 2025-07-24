@@ -12,7 +12,7 @@ from ordered_set import OrderedSet
 from core.resolver.preset import PresetEvaluator
 from core.resolver.context import ResolverContext, PresetFile
 from core.resolver.ast import PresetExpr, TagLeaf, Text
-from core.resolver.exceptions import PresetNotFoundError
+from core.resolver.exceptions import PresetNotFoundError, RecursionLimitError
 
 
 class TestPresetEvaluator:
@@ -39,6 +39,24 @@ class TestPresetEvaluator:
             "empty": PresetFile(
                 version=2,
                 contents={}
+            ),
+            "nested": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:quality#base>", "nested content"]
+                }
+            ),
+            "circular1": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:circular2#1>"]
+                }
+            ),
+            "circular2": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:circular1#1>"]
+                }
             )
         }
         
@@ -316,6 +334,77 @@ class TestMixedAST:
         assert result[1].tags == OrderedSet(["tag1", "tag2"])
         assert isinstance(result[2], Text)
         assert result[2].value == " End"
+
+
+class TestNestedPreset:
+    """ネストプリセット処理テスト"""
+    
+    def setup_method(self):
+        presets = {
+            "test": PresetFile(
+                version=2,
+                contents={
+                    "1": ["expanded_content"]
+                }
+            ),
+            "nested": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:test#1>", "nested content"]
+                }
+            ),
+            "circular1": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:circular2#1>"]
+                }
+            ),
+            "circular2": PresetFile(
+                version=2,
+                contents={
+                    "1": ["<preset:circular1#1>"]
+                }
+            )
+        }
+        
+        self.context = ResolverContext(
+            presets=presets,
+            wildcards={},
+            rng=Random(),
+            strict_level="warn"
+        )
+        self.evaluator = PresetEvaluator(self.context)
+    
+    def test_nested_preset_expansion(self):
+        """ネストプリセット展開テスト"""
+        ast = [PresetExpr(key_expr="nested#1")]
+        result = self.evaluator.evaluate_ast(ast)
+        
+        assert len(result) == 1
+        assert isinstance(result[0], TagLeaf)
+        # ネスト展開: <preset:test#1> → expanded_content
+        expected = OrderedSet(["expanded_content", "nested content"])
+        assert result[0].tags == expected
+    
+    def test_recursion_limit(self):
+        """再帰限界テスト"""
+        # strict_level="error"に変更してRecursionLimitErrorを確実に発生
+        self.context.strict_level = "error"
+        self.evaluator = PresetEvaluator(self.context)
+        
+        ast = [PresetExpr(key_expr="circular1#1")]
+        with pytest.raises(RecursionLimitError):
+            self.evaluator.evaluate_ast(ast)
+    
+    def test_mixed_string_expansion(self):
+        """プリセット+テキスト複合テスト"""
+        # setup_methodでnested#1 = ["<preset:test#1>", "nested content"]設定済み
+        ast = [PresetExpr(key_expr="nested#1")]
+        result = self.evaluator.evaluate_ast(ast)
+        
+        assert len(result) == 1
+        expected = OrderedSet(["expanded_content", "nested content"])
+        assert result[0].tags == expected
 
 
 class TestTokenization:

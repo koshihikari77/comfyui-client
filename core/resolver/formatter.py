@@ -124,7 +124,7 @@ class PromptFormatter:
     
     def _join_with_locale(self, tags: List[str]) -> str:
         """
-        locale区切り文字でjoin
+        locale区切り文字でjoin（パターン判定結合）
         
         Args:
             tags: 結合対象タグリスト
@@ -132,9 +132,6 @@ class PromptFormatter:
         Returns:
             locale区切りで結合された文字列
         """
-        # locale妥当性検証・フォールバック
-        delimiter = self._validate_locale()
-        
         # 空リストは空文字列
         if not tags:
             return ""
@@ -143,8 +140,23 @@ class PromptFormatter:
         if len(tags) == 1:
             return tags[0]
         
-        # locale区切り文字でjoin
-        return delimiter.join(tags)
+        # パターン判定結合
+        result_parts = [tags[0]]  # 最初の要素
+        
+        for i, tag in enumerate(tags[1:], 1):
+            prev_tag = tags[i-1]
+            
+            # 先頭パターン判定（スペース・カンマ開始）
+            if tag.startswith(' ') or tag.startswith(','):
+                result_parts.append(tag)  # 直結合
+            # 末尾パターン判定（前要素が末尾スペース・カンマ）
+            elif prev_tag.endswith(' ') or prev_tag.endswith(','):
+                result_parts.append(tag)  # 直結合
+            else:  # 通常要素→カンマ区切り
+                delimiter = self._validate_locale()
+                result_parts.append(delimiter + tag)
+        
+        return ''.join(result_parts)
     
     def _validate_locale(self) -> str:
         """
