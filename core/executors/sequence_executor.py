@@ -12,12 +12,13 @@ class SequenceJobExecutor(BaseExecutor):
         logger.info(f"🚀 Starting SEQUENCE job: '{self.config.job_name}' (ID: {job_id})")
         
         try:
-            total_runs = sum(p.get('runs', 1) for p in self.config.prompts)
+            total_runs = sum((p.runs or self.config.default_runs) for p in self.config.prompts)
             run_counter = 0
             
             for prompt_def in self.config.prompts:
-                template = prompt_def['template']
-                num_runs = prompt_def.get('runs', 1)
+                template = prompt_def.template
+                # runsがNoneの場合はdefault_runsを使用
+                num_runs = prompt_def.runs or self.config.default_runs
 
                 for _ in range(num_runs):
                     run_counter += 1

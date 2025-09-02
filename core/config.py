@@ -94,12 +94,17 @@ class Config:
 
     @property
     def variables(self) -> list:
-        return self.job_data.get('variables', [])
+        return self.job_config_model.variables
 
     @property
     def prompts(self) -> list:
-        """シーケンスジョブ用のプロンプト定義"""
-        return self.job_data.get('prompts', [])
+        """シーケンスジョブ用のプロンプト定義（正規化済みPromptModelオブジェクト）"""
+        return self.job_config_model.prompts
+
+    @property
+    def default_runs(self) -> int:
+        """デフォルト実行回数"""
+        return self.job_config_model.default_runs
 
     @property
     def placeholders(self) -> dict:

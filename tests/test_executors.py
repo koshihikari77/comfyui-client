@@ -200,3 +200,107 @@ class TestBaseExecutorMethods:
         
         # 元のワークフローが返される
         assert prepared_workflow["1"]["inputs"]["test_param"] == "default_value" 
+    
+    def test_sequence_executor_with_new_prompt_format(self, temp_config_dir, sample_connection_config, mock_service_container):
+        """SequenceExecutorの新プロンプト形式（List[str]）対応テスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        workflows_dir = temp_config_dir / 'workflows'
+        workflows_dir.mkdir()
+        
+        # 新形式を含むsequence job設定
+        config_data = {
+            'job_name': 'sequence_new_format_test',
+            'job_type': 'sequence',
+            'base_workflow': 'workflows/test_sequence.json',
+            'default_runs': 1,
+            'prompt_target': {'node_id': 1, 'input_name': 'text'},
+            'prompts': [
+                # 新形式1: List[str]
+                ["1girl", "<preset:character>", "school_uniform"],
+                # 新形式2: フロースタイル
+                ["1boy", "suit", "office"],
+                # 従来形式との混在
+                {
+                    "template": "1girl, casual clothes",
+                    "runs": 2
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'sequence_new_format.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            import yaml
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        # テスト用ワークフロー作成
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_sequence.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+        
+        from core.config import Config
+        config = Config(str(config_path), str(sample_connection_config))
+        
+        # プロンプトが正規化されていることを確認
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "1girl, <preset:character>, school_uniform"
+        assert config.prompts[0].runs is None  # default_runsを使用
+        assert config.prompts[1].template == "1boy, suit, office"
+        assert config.prompts[2].template == "1girl, casual clothes"
+        assert config.prompts[2].runs == 2
+        
+        executor = SequenceJobExecutor(config, mock_service_container)
+        
+        # 実行テスト
+        with patch('pathlib.Path.mkdir'):
+            executor.run()
+        
+        # 実行結果確認
+        db = mock_service_container.get_database_manager()
+        assert len(db.jobs) == 1
+        assert db.jobs[1]['status'] == 'completed'
+        
+        # 画像レコード数確認：1 + 1 + 2 = 4回実行
+        assert len(db.images) == 4
+    
+    def test_sequence_executor_default_runs_usage(self, temp_config_dir, sample_connection_config, mock_service_container):
+        """SequenceExecutorのdefault_runs使用テスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        workflows_dir = temp_config_dir / 'workflows'
+        workflows_dir.mkdir()
+        
+        config_data = {
+            'job_name': 'default_runs_test',
+            'job_type': 'sequence',
+            'base_workflow': 'workflows/test_sequence.json',
+            'default_runs': 3,  # デフォルト実行回数を3に設定
+            'prompt_target': {'node_id': 1, 'input_name': 'text'},
+            'prompts': [
+                ["1girl", "school_uniform"],  # runsが未指定 → default_runs使用
+                {"template": "1boy, suit", "runs": 1}  # 明示的に1回指定
+            ]
+        }
+        
+        config_path = jobs_dir / 'default_runs_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            import yaml
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        # テスト用ワークフロー作成
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_sequence.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+        
+        from core.config import Config
+        config = Config(str(config_path), str(sample_connection_config))
+        executor = SequenceJobExecutor(config, mock_service_container)
+        
+        with patch('pathlib.Path.mkdir'):
+            executor.run()
+        
+        # 実行結果確認：3回（default_runs） + 1回（明示指定） = 4回実行
+        db = mock_service_container.get_database_manager()
+        assert len(db.images) == 4

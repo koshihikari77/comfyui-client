@@ -88,6 +88,7 @@ class RandomParameterModel(BaseModel):
 class PromptModel(BaseModel):
     """プロンプト定義のモデル（シーケンス用）"""
     template: str = Field(..., min_length=1, description="プロンプトテンプレート")
+    runs: Optional[int] = Field(None, description="実行回数")
     name: Optional[str] = Field(None, description="プロンプト名")
 
 
@@ -104,7 +105,8 @@ class JobConfigModel(BaseModel):
     random_parameters: List[RandomParameterModel] = Field(default=[], description="ランダムパラメータ")
     
     # シーケンス用
-    prompts: List[PromptModel] = Field(default=[], description="プロンプト定義（シーケンス用）")
+    default_runs: Optional[int] = Field(default=1, description="デフォルトrun数")
+    prompts: List[Union[PromptModel, List[str], Dict[str, Any]]] = Field(default=[], description="プロンプト定義（シーケンス用）")
 
     @model_validator(mode='after')
     def validate_job_type_requirements(self):
@@ -121,6 +123,30 @@ class JobConfigModel(BaseModel):
         
         return self
 
+    @model_validator(mode='after')
+    def normalize_prompts(self):
+        """プロンプト形式を正規化"""
+        if not self.prompts:
+            return self
+        
+        normalized = []
+        for item in self.prompts:
+            if isinstance(item, list):  # List[str] -> PromptModel
+                template = ", ".join(item)
+                normalized.append(PromptModel(
+                    template=template,
+                    runs=None  # default_runsを使用
+                ))
+            elif isinstance(item, dict):  # 既存形式
+                normalized.append(PromptModel(**item))
+            elif isinstance(item, PromptModel):  # 既にモデル化済み
+                normalized.append(item)
+            else:
+                raise ValueError(f"無効なプロンプト形式: {type(item)}")
+        
+        self.prompts = normalized
+        return self
+    
     @field_validator('placeholders')
     @classmethod
     def validate_placeholders(cls, v):

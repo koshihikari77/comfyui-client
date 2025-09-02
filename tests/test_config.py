@@ -169,3 +169,88 @@ class TestConfig:
         # /tmp/xxx/workflows/test_workflow.json になるはず  
         expected_path = sample_job_config.parent.parent / 'workflows' / 'test_workflow.json'
         assert config.base_workflow_path == expected_path 
+    
+    def test_sequence_job_with_new_prompt_format(self, temp_config_dir, sample_connection_config):
+        """sequenceジョブの新プロンプト形式（List[str]）のテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        
+        config_data = {
+            'job_name': 'sequence_test',
+            'job_type': 'sequence',
+            'default_runs': 2,
+            'prompts': [
+                # 新形式1: List[str]
+                ["1girl", "<preset:character>", "school_uniform"],
+                # 新形式2: フロースタイル
+                ["1boy", "suit", "office"],
+                # 従来形式との混在
+                {
+                    "template": "1girl, casual clothes",
+                    "runs": 3
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'sequence_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        # プロンプトが正規化されているかテスト
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "1girl, <preset:character>, school_uniform"
+        assert config.prompts[0].runs is None  # default_runsを使用
+        assert config.prompts[1].template == "1boy, suit, office"
+        assert config.prompts[1].runs is None
+        assert config.prompts[2].template == "1girl, casual clothes"
+        assert config.prompts[2].runs == 3
+    
+    def test_sequence_job_validation_errors(self, temp_config_dir, sample_connection_config):
+        """sequenceジョブのバリデーションエラーテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        
+        # プロンプトが空の場合
+        config_data = {
+            'job_name': 'sequence_test',
+            'job_type': 'sequence',
+            'prompts': []
+        }
+        
+        config_path = jobs_dir / 'empty_prompts.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="sequenceジョブではpromptsが必須です"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+    
+    def test_invalid_prompt_format(self, temp_config_dir, sample_connection_config):
+        """無効なプロンプト形式のエラーテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        
+        config_data = {
+            'job_name': 'sequence_test',
+            'job_type': 'sequence',
+            'prompts': [
+                "invalid_string_format"  # PromptModel、List[str]、Dict以外
+            ]
+        }
+        
+        config_path = jobs_dir / 'invalid_prompt.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="無効なプロンプト形式"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
