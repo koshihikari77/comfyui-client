@@ -85,6 +85,11 @@ class RandomParameterModel(BaseModel):
         return self
 
 
+class IteratorItemModel(BaseModel):
+    """Iterator項目定義（expand_preset用）"""
+    expand_preset: str = Field(..., min_length=1, description="展開するプリセット名")
+
+
 class PromptModel(BaseModel):
     """プロンプト定義のモデル（シーケンス用）"""
     template: str = Field(..., min_length=1, description="プロンプトテンプレート")
@@ -107,6 +112,7 @@ class JobConfigModel(BaseModel):
     # シーケンス用
     default_runs: Optional[int] = Field(default=1, description="デフォルトrun数")
     prompts: List[Union[PromptModel, List[str], Dict[str, Any]]] = Field(default=[], description="プロンプト定義（シーケンス用）")
+    iterators: Optional[Dict[str, Union[List[str], IteratorItemModel]]] = Field(default={}, description="Iterator定義（手動リストまたはexpand_preset指示）")
 
     @model_validator(mode='after')
     def validate_job_type_requirements(self):
@@ -154,6 +160,32 @@ class JobConfigModel(BaseModel):
         for key, values in v.items():
             if not isinstance(values, list) or len(values) == 0:
                 raise ValueError(f"プレースホルダー '{key}' は空でないリストである必要があります")
+        return v
+
+    @field_validator('iterators')
+    @classmethod
+    def validate_iterators(cls, v):
+        """Iterator定義の形式チェック"""
+        if not v:  # 空の場合はOK
+            return v
+        
+        for iterator_name, iterator_value in v.items():
+            if isinstance(iterator_value, list):
+                # 手動リスト定義の場合
+                if len(iterator_value) == 0:
+                    raise ValueError(f"Iterator '{iterator_name}' は空でないリストである必要があります")
+                for item in iterator_value:
+                    if not isinstance(item, str):
+                        raise ValueError(f"Iterator '{iterator_name}' のリスト要素は文字列である必要があります")
+            elif isinstance(iterator_value, dict):
+                # expand_preset指示の場合
+                if 'expand_preset' not in iterator_value:
+                    raise ValueError(f"Iterator '{iterator_name}' の辞書には 'expand_preset' キーが必要です")
+                if not isinstance(iterator_value['expand_preset'], str) or len(iterator_value['expand_preset']) == 0:
+                    raise ValueError(f"Iterator '{iterator_name}' の 'expand_preset' は空でない文字列である必要があります")
+            else:
+                raise ValueError(f"Iterator '{iterator_name}' はリストまたは辞書である必要があります")
+        
         return v
 
 

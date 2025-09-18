@@ -107,6 +107,11 @@ class Config:
         return self.job_config_model.default_runs
 
     @property
+    def iterators(self) -> dict:
+        """Iterator定義"""
+        return self.job_config_model.iterators
+
+    @property
     def placeholders(self) -> dict:
         return self.job_data.get('placeholders', {})
 

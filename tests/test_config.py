@@ -254,3 +254,81 @@ class TestConfig:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+    
+    def test_iterator_configuration(self, temp_config_dir, sample_connection_config):
+        """Iterator設定のテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        
+        config_data = {
+            'job_name': 'iterator_test',
+            'job_type': 'sequence',
+            'prompts': [
+                {
+                    "template": "1girl, $[location], $[style]",
+                    "runs": 3
+                }
+            ],
+            'iterators': {
+                'location': ['library', 'cafe', 'spaceport'],
+                'style': {
+                    'expand_preset': 'expression'
+                }
+            }
+        }
+        
+        config_path = jobs_dir / 'iterator_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert hasattr(config, 'iterators')
+        assert config.iterators is not None
+        assert 'location' in config.iterators
+        assert 'style' in config.iterators
+        assert config.iterators['location'] == ['library', 'cafe', 'spaceport']
+        assert config.iterators['style']['expand_preset'] == 'expression'
+    
+    def test_iterator_validation_errors(self, temp_config_dir, sample_connection_config):
+        """Iterator設定のバリデーションエラーテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        
+        # 空のIteratorリスト
+        config_data = {
+            'job_name': 'iterator_test',
+            'job_type': 'sequence',
+            'prompts': [{"template": "test", "runs": 1}],
+            'iterators': {
+                'empty_list': []
+            }
+        }
+        
+        config_path = jobs_dir / 'empty_iterator.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="は空でないリストである必要があります"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+        
+        # expand_presetキーなしの辞書
+        config_data['iterators'] = {
+            'invalid_dict': {'missing_key': 'value'}
+        }
+        
+        config_path = jobs_dir / 'invalid_dict.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="'expand_preset' キーが必要です"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )

@@ -297,7 +297,33 @@ class PromptResolverV2(IPromptResolver):
         if 'seed' in config:
             self.context.rng = Random(config['seed'])
         
-        logger.debug(f"V2 context updated: {config}")
+    def get_preset_groups(self, preset_key: str) -> List[str]:
+        """
+        指定されたプリセットの全グループ名を定義順で返す
+        
+        Args:
+            preset_key: プリセット名（例: "character/akira"）
+        
+        Returns:
+            グループ名のリスト（例: ["1", "pre_fella_sad"]）
+        
+        Raises:
+            KeyError: プリセットが存在しない場合
+            ValueError: プリセット内容が不正な場合
+        """
+        if preset_key not in self.context.presets:
+            raise KeyError(f"Preset '{preset_key}' not found")
+        
+        preset_file = self.context.presets[preset_key]
+        
+        if not hasattr(preset_file, 'contents') or not preset_file.contents:
+            raise ValueError(f"Preset '{preset_key}' has no contents")
+        
+        # contentsのキーを定義順で返す（辞書の挿入順序はPython 3.7+で保証）
+        group_names = list(preset_file.contents.keys())
+        
+        logger.debug(f"get_preset_groups: '{preset_key}' -> {group_names}")
+        return group_names
     
     def get_pipeline_info(self) -> Dict:
         """パイプライン情報取得（デバッグ用）"""
