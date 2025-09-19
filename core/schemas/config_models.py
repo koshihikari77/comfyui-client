@@ -112,7 +112,7 @@ class JobConfigModel(BaseModel):
     # シーケンス用
     default_runs: Optional[int] = Field(default=1, description="デフォルトrun数")
     prompts: List[Union[PromptModel, List[str], Dict[str, Any]]] = Field(default=[], description="プロンプト定義（シーケンス用）")
-    iterators: Optional[Dict[str, Union[List[str], IteratorItemModel]]] = Field(default={}, description="Iterator定義（手動リストまたはexpand_preset指示）")
+    iterators: Optional[Dict[str, Union[List[str], Dict[str, str]]]] = Field(default={}, description="Iterator定義（手動リストまたはexpand_preset指示）")
 
     @model_validator(mode='after')
     def validate_job_type_requirements(self):

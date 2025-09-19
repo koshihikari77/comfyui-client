@@ -9,6 +9,7 @@ from core.mock_services import MockServiceContainer
 from core.executors.base_executor import BaseExecutor
 from core.executors.sequence_executor import SequenceJobExecutor
 from core.executors.grid_search_executor import GridSearchJobExecutor
+from core.prompt_resolver_v2 import PromptResolverV2
 
 # プロジェクトルートをPythonパスに追加
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -28,7 +29,6 @@ def main():
     parser = argparse.ArgumentParser(description="ComfyV Verification Framework")
     parser.add_argument(
         "-j", "--job-config", 
-        required=True, 
         help="Path to the job config YAML file (e.g., configs/lora_verify_config.yml)"
     )
     parser.add_argument(
@@ -46,11 +46,36 @@ def main():
         action="store_true",
         help="Run in test mode with mock services (for development/testing)."
     )
+    parser.add_argument(
+        "--eval-prompt",
+        help="Evaluate a single prompt and display the result"
+    )
     args = parser.parse_args()
 
     # ロガーをセットアップ
     setup_logging(args.verbose)
 
+    # eval-promptモードの処理
+    if args.eval_prompt:
+        try:
+            # プロンプト評価モード
+            print(f"Original: {args.eval_prompt}")
+            
+            # PromptResolverV2で評価
+            resolver = PromptResolverV2("configs/prompts")
+            resolved = resolver.resolve(args.eval_prompt)
+            
+            print(f"Resolved: {resolved}")
+            return
+            
+        except Exception as e:
+            logging.error(f"❌ Prompt evaluation failed: {e}")
+            sys.exit(1)
+
+    # job-configが必要なモード
+    if not args.job_config:
+        logging.error("❌ --job-config is required when not using --eval-prompt")
+        sys.exit(1)
 
     try:
         logging.info("Initializing ComfyV...")
