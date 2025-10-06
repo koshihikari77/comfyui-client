@@ -422,3 +422,147 @@ class TestBaseExecutorMethods:
             import logging
             # この場合はテストスキップまたは警告確認
             pass
+
+    def test_sequence_executor_parameter_combinations_functionality(self, temp_config_dir, mock_service_container, sample_connection_config):
+        """SequenceJobExecutor のパラメータ組み合わせ機能テスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        workflows_dir = temp_config_dir / 'workflows'
+        jobs_dir.mkdir(exist_ok=True)
+        workflows_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'param_combinations_test',
+            'job_type': 'sequence',
+            'base_workflow': 'workflows/test_sequence.json',
+            'prompts': [
+                {'template': 'test prompt', 'runs': 6}
+            ],
+            'parameter_combinations': [
+                {
+                    'name': 'high_quality',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 1024},
+                        {'node_id': 220, 'input_name': 'height', 'value': 1024},
+                        {'node_id': 54, 'input_name': 'model_weight_1', 'value': 0.8}
+                    ]
+                },
+                {
+                    'name': 'artistic_portrait',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 768},
+                        {'node_id': 220, 'input_name': 'height', 'value': 1344},
+                        {'node_id': 54, 'input_name': 'model_weight_1', 'value': 0.6}
+                    ]
+                },
+                {
+                    'name': 'minimal_landscape',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 1344},
+                        {'node_id': 220, 'input_name': 'height', 'value': 768}
+                    ]
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'param_combinations_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            import yaml
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        # テスト用ワークフロー作成
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_sequence.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+        
+        from core.config import Config
+        config = Config(str(config_path), str(sample_connection_config))
+        executor = SequenceJobExecutor(config, mock_service_container)
+        
+        # パラメータ組み合わせの読み込み確認
+        combinations = config.parameter_combinations
+        assert len(combinations) == 3
+        
+        # 巡回ロジックテスト
+        test_cases = [
+            (0, 'high_quality'),     # 1回目: index 0
+            (1, 'artistic_portrait'), # 2回目: index 1  
+            (2, 'minimal_landscape'), # 3回目: index 2
+            (3, 'high_quality'),     # 4回目: index 0 (巡回)
+            (4, 'artistic_portrait'), # 5回目: index 1 (巡回)
+            (5, 'minimal_landscape'), # 6回目: index 2 (巡回)
+        ]
+        
+        for iteration_index, expected_name in test_cases:
+            combination = executor._get_current_parameter_combination(iteration_index)
+            assert combination is not None
+            assert combination.name == expected_name
+        
+        # パラメータ適用テスト（優先度確認）
+        # 1回目: high_quality組み合わせ
+        params = executor._build_params("test template", 0)
+        
+        # パラメータ組み合わせの値が適用されているか確認
+        assert params['220.width'] == 1024  # high_quality の width
+        assert params['220.height'] == 1024  # high_quality の height
+        assert params['54.model_weight_1'] == 0.8  # high_quality の model_weight_1
+        
+        # 2回目: artistic_portrait組み合わせ
+        params = executor._build_params("test template", 1)
+        assert params['220.width'] == 768   # artistic_portrait の width
+        assert params['220.height'] == 1344  # artistic_portrait の height
+        assert params['54.model_weight_1'] == 0.6  # artistic_portrait の model_weight_1
+
+    def test_sequence_executor_parameter_priority(self, temp_config_dir, mock_service_container, sample_connection_config):
+        """パラメータ適用優先度テスト（ParameterCombination > random_parameters > fixed_parameters）"""
+        jobs_dir = temp_config_dir / 'jobs'
+        workflows_dir = temp_config_dir / 'workflows'
+        jobs_dir.mkdir(exist_ok=True)
+        workflows_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'priority_test',
+            'job_type': 'sequence',
+            'base_workflow': 'workflows/test_sequence.json',
+            'prompts': [{'template': 'test', 'runs': 2}],
+            'fixed_parameters': [
+                {'node_id': 220, 'input_name': 'width', 'value': 512},  # 最低優先度
+                {'node_id': 171, 'input_name': 'seed', 'value': 12345}
+            ],
+            'random_parameters': [
+                {'node_id': 220, 'input_name': 'width', 'type': 'choice', 'values': [256]},  # 中優先度
+                {'node_id': 54, 'input_name': 'model_weight_1', 'type': 'choice', 'values': [0.5]}
+            ],
+            'parameter_combinations': [
+                {
+                    'name': 'override_test',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 1024},  # 最高優先度
+                        {'node_id': 220, 'input_name': 'height', 'value': 1024}
+                    ]
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'priority_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            import yaml
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        # テスト用ワークフロー作成
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_sequence.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+        
+        from core.config import Config
+        config = Config(str(config_path), str(sample_connection_config))
+        executor = SequenceJobExecutor(config, mock_service_container)
+        
+        params = executor._build_params("test template", 0)
+        
+        # 優先度確認
+        assert params['220.width'] == 1024   # ParameterCombination が最優先
+        assert params['220.height'] == 1024  # ParameterCombination の値
+        assert params['54.model_weight_1'] == 0.5  # random_parameters の値（上書きされない）
+        assert params['171.seed'] == 12345   # fixed_parameters の値（上書きされない）

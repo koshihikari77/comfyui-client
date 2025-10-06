@@ -40,7 +40,7 @@ class SequenceJobExecutor(BaseExecutor):
                     
                     logger.info(f"  [{run_counter}/{total_runs}] Running with template: '{processed_template[:70]}...'")
                     
-                    params = self._build_params(processed_template)
+                    params = self._build_params(processed_template, i)
                     workflow = self._prepare_workflow(params)
                     self._execute_single_run(job_id, workflow, params)
 
@@ -51,15 +51,16 @@ class SequenceJobExecutor(BaseExecutor):
         finally:
             self.db.close()
 
-    def _build_params(self, template: str) -> dict:
+    def _build_params(self, template: str, iteration_index: int) -> dict:
         params = {}
-        # 1. 固定パラメータを適用
+        
+        # 1. 固定パラメータを適用（最低優先度）
         if self.config.fixed_parameters:
             for p in self.config.fixed_parameters:
                 key = f"{p['node_id']}.{p['input_name']}"
                 params[key] = p['value']
 
-        # 2. ランダムパラメータを生成
+        # 2. ランダムパラメータを生成（中優先度）
         if self.config.random_parameters:
             for p in self.config.random_parameters:
                 key = f"{p['node_id']}.{p['input_name']}"
@@ -68,7 +69,15 @@ class SequenceJobExecutor(BaseExecutor):
                 elif p['type'] == 'choice':
                     params[key] = random.choice(p['values'])
         
-        # 3. プロンプトを解決
+        # 3. パラメータ組み合わせを適用（最高優先度）
+        if self.config.parameter_combinations:
+            combination = self._get_current_parameter_combination(iteration_index)
+            if combination:
+                for param in combination.parameters:
+                    key = f"{param.node_id}.{param.input_name}"
+                    params[key] = param.value
+        
+        # 4. プロンプトを解決
         resolved_prompt = self.prompt_resolver.resolve(template)
         logger.info(f" resolved prompt (full): '{resolved_prompt}'")
         # ★プロンプトを適用するノードIDと入力名をconfigから取得する必要がある
@@ -196,3 +205,25 @@ class SequenceJobExecutor(BaseExecutor):
             logger.debug(f"Template substitution: '{template}' -> '{result}'")
         
         return result
+
+    def _get_current_parameter_combination(self, iteration_index: int):
+        """
+        現在の反復インデックスに対応するパラメータ組み合わせを取得
+        
+        Args:
+            iteration_index: 現在の反復インデックス（0ベース）
+            
+        Returns:
+            ParameterCombinationModel: 選択された組み合わせ、またはNone
+        """
+        combinations = self.config.parameter_combinations
+        if not combinations:
+            return None
+        
+        # 巡回ロジック: index % len(combinations)
+        selected_index = iteration_index % len(combinations)
+        selected_combination = combinations[selected_index]
+        
+        logger.debug(f"Parameter combination: index {iteration_index} -> {selected_index} -> '{selected_combination.name}'")
+        
+        return selected_combination

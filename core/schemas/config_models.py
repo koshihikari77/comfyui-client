@@ -90,6 +90,38 @@ class IteratorItemModel(BaseModel):
     expand_preset: str = Field(..., min_length=1, description="展開するプリセット名")
 
 
+class ParameterItemModel(BaseModel):
+    """パラメータ組み合わせの個別項目"""
+    node_id: int = Field(..., description="ワークフローのノードID")
+    input_name: str = Field(..., min_length=1, description="入力パラメータ名")
+    value: Union[int, float, str] = Field(..., description="パラメータ値")
+
+    @field_validator('node_id')
+    @classmethod
+    def validate_node_id(cls, v):
+        if v <= 0:
+            raise ValueError("node_idは正の整数である必要があります")
+        return v
+
+
+class ParameterCombinationModel(BaseModel):
+    """パラメータ組み合わせ定義"""
+    name: str = Field(..., min_length=1, description="組み合わせの識別名")
+    parameters: List[ParameterItemModel] = Field(..., min_length=1, description="パラメータのリスト")
+
+    @field_validator('parameters')
+    @classmethod
+    def validate_unique_parameters(cls, v):
+        """同一の node_id.input_name の重複をチェック"""
+        seen = set()
+        for param in v:
+            key = f"{param.node_id}.{param.input_name}"
+            if key in seen:
+                raise ValueError(f"重複するパラメータが検出されました: node_id={param.node_id}, input_name={param.input_name}")
+            seen.add(key)
+        return v
+
+
 class PromptModel(BaseModel):
     """プロンプト定義のモデル（シーケンス用）"""
     template: str = Field(..., min_length=1, description="プロンプトテンプレート")
@@ -114,6 +146,7 @@ class JobConfigModel(BaseModel):
     prompts: List[Union[PromptModel, List[str], Dict[str, Any]]] = Field(default=[], description="プロンプト定義（シーケンス用）")
     iterators: Optional[Dict[str, Union[List[str], Dict[str, str]]]] = Field(default={}, description="Iterator定義（手動リストまたはexpand_preset指示）")
     constants: Optional[Dict[str, str]] = Field(default={}, description="定数定義（%constant_name%記法で参照）")
+    parameter_combinations: Optional[List[ParameterCombinationModel]] = Field(default=[], description="パラメータ組み合わせ定義（実行時に順次適用）")
 
     @model_validator(mode='after')
     def validate_job_type_requirements(self):
@@ -201,6 +234,22 @@ class JobConfigModel(BaseModel):
                 raise ValueError(f"Constant名 '{constant_name}' は空でない文字列である必要があります")
             if not isinstance(constant_value, str):
                 raise ValueError(f"Constant '{constant_name}' の値は文字列である必要があります")
+        
+        return v
+
+    @field_validator('parameter_combinations')
+    @classmethod
+    def validate_parameter_combinations(cls, v):
+        """Parameter combinations定義の形式チェック"""
+        if not v:  # 空の場合はOK
+            return v
+        
+        combination_names = set()
+        for combination in v:
+            # 組み合わせ名の重複チェック
+            if combination.name in combination_names:
+                raise ValueError(f"Parameter combination名 '{combination.name}' が重複しています")
+            combination_names.add(combination.name)
         
         return v
 

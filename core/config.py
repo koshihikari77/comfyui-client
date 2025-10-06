@@ -63,7 +63,7 @@ class Config:
                 field_path = '.'.join(str(loc) for loc in error['loc'])
                 error_messages.append(f"Field '{field_path}': {error['msg']}")
             
-            if 'variables' in error_str or 'job_name' in error_str or 'base_workflow' in error_str:
+            if 'variables' in error_str or 'job_name' in error_str or 'base_workflow' in error_str or 'parameter_combinations' in error_str:
                 raise ValueError(f"Config validation failed: {'; '.join(error_messages)}")
             elif 'server_address' in error_str:
                 raise ValueError(f"Connection config validation failed: {'; '.join(error_messages)}")
@@ -115,6 +115,11 @@ class Config:
     def constants(self) -> dict:
         """Constant定義"""
         return self.job_config_model.constants
+
+    @property
+    def parameter_combinations(self) -> list:
+        """Parameter combinations定義"""
+        return self.job_config_model.parameter_combinations
 
     @property
     def placeholders(self) -> dict:

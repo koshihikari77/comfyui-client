@@ -332,3 +332,140 @@ class TestConfig:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+
+    def test_parameter_combinations_configuration(self, temp_config_dir, sample_connection_config):
+        """パラメータ組み合わせ設定の正常読み込みテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'parameter_combinations_test',
+            'job_type': 'sequence',
+            'prompts': [
+                {'template': 'test prompt', 'runs': 4}
+            ],
+            'parameter_combinations': [
+                {
+                    'name': 'high_quality',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 1024},
+                        {'node_id': 220, 'input_name': 'height', 'value': 1024},
+                        {'node_id': 54, 'input_name': 'model_weight_1', 'value': 0.8}
+                    ]
+                },
+                {
+                    'name': 'artistic_portrait',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 768},
+                        {'node_id': 220, 'input_name': 'height', 'value': 1344},
+                        {'node_id': 54, 'input_name': 'model_weight_1', 'value': 0.6}
+                    ]
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'param_combinations.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        # パラメータ組み合わせの確認
+        combinations = config.parameter_combinations
+        assert len(combinations) == 2
+        
+        # 1つ目の組み合わせ確認
+        first_combination = combinations[0]
+        assert first_combination.name == 'high_quality'
+        assert len(first_combination.parameters) == 3
+        
+        # パラメータの詳細確認
+        width_param = first_combination.parameters[0]
+        assert width_param.node_id == 220
+        assert width_param.input_name == 'width'
+        assert width_param.value == 1024
+        
+        # 2つ目の組み合わせ確認
+        second_combination = combinations[1]
+        assert second_combination.name == 'artistic_portrait'
+        assert len(second_combination.parameters) == 3
+
+    def test_parameter_combinations_validation_errors(self, temp_config_dir, sample_connection_config):
+        """パラメータ組み合わせのバリデーションエラーテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        # 重複する組み合わせ名
+        config_data = {
+            'job_name': 'duplicate_test',
+            'job_type': 'sequence',
+            'prompts': [{'template': 'test', 'runs': 1}],
+            'parameter_combinations': [
+                {
+                    'name': 'duplicate_name',
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'width', 'value': 1024}
+                    ]
+                },
+                {
+                    'name': 'duplicate_name',  # 重複
+                    'parameters': [
+                        {'node_id': 220, 'input_name': 'height', 'value': 1024}
+                    ]
+                }
+            ]
+        }
+        
+        config_path = jobs_dir / 'duplicate_names.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="Parameter combination名 'duplicate_name' が重複しています"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+        
+        # 組み合わせ内の重複パラメータ
+        config_data['parameter_combinations'] = [
+            {
+                'name': 'duplicate_params',
+                'parameters': [
+                    {'node_id': 220, 'input_name': 'width', 'value': 1024},
+                    {'node_id': 220, 'input_name': 'width', 'value': 512}  # 重複
+                ]
+            }
+        ]
+        
+        config_path = jobs_dir / 'duplicate_params.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="重複するパラメータが検出されました: node_id=220, input_name=width"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+        
+        # 無効なnode_id
+        config_data['parameter_combinations'] = [
+            {
+                'name': 'invalid_node_id',
+                'parameters': [
+                    {'node_id': 0, 'input_name': 'width', 'value': 1024}  # 0は無効
+                ]
+            }
+        ]
+        
+        config_path = jobs_dir / 'invalid_node_id.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="node_idは正の整数である必要があります"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
