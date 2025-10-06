@@ -10,3 +10,8 @@ uv.lock
 .benchmarks/
 =*
 workspace/
+automosaic_2025-06-24_3/
+documents/old
+gcp/
+.serena/
+.claude/
