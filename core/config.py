@@ -112,6 +112,11 @@ class Config:
         return self.job_config_model.iterators
 
     @property
+    def constants(self) -> dict:
+        """Constant定義"""
+        return self.job_config_model.constants
+
+    @property
     def placeholders(self) -> dict:
         return self.job_data.get('placeholders', {})
 

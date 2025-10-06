@@ -8,6 +8,8 @@
 ### 1.1 サポートする記法
 | 記法 | 例 | 用途 |
 |------|------|------|
+| **Constant** | `%base_quality%` | 固定文字列定数を挿入 |
+| **Iterator** | `$[location]` | 順次選択値を挿入 |
 | **Preset** | `<preset:quality#base>` | 事前定義したタグ集合を挿入 |
 | **Placeholder** | `{emotion}` | 設定値からランダム/全展開選択 |
 | **Wildcard** | `__hair_color__` | ファイルからランダム選択 |
@@ -15,7 +17,7 @@
 
 ### 1.2 処理順序
 ```
-Template → ① Parse → ② PresetEval → ③ Placeholder → ④ Wildcard → ⑤ Filter → ⑥ Format
+Template → ⓪ Constant → ⓪ Iterator → ① Parse → ② PresetEval → ③ Placeholder → ④ Wildcard → ⑤ Filter → ⑥ Format
 ```
 
 ---
@@ -210,9 +212,68 @@ prompts:
 - **正規化**: 内部で自動的にカンマ区切りのtemplate文字列に変換
 
 ---
-## 7. Iterator機能（v2.7新機能）
+## 7. Constant機能（v2.8新機能）
 
 ### 7.1 概要
+変化しない固定のプロンプト部分を定数として定義する機能です。複数のプロンプトで共通する部分を一箇所で管理でき、保守性が向上します。
+
+**主要特徴**:
+- `sequence`ジョブ専用機能
+- `%constant_name%`記法でプロンプト内参照
+- シンプルな文字列置換
+- Iterator処理よりも前に実行
+
+### 7.2 Constant定義
+
+```yaml
+# Job設定ファイル内
+constants:
+  # 基本品質タグ
+  base_quality: "masterpiece, best quality, amazing quality"
+  
+  # キャラクター基本設定
+  base_character: "1girl, shiina yuika \\(nijisanji\\), nijiyuika"
+  
+  # 共通描画設定
+  base_tags: "detailed skin, detailed beautiful face and eye"
+```
+
+### 7.3 プロンプト内での使用
+
+```yaml
+prompts:
+  - template: "%base_character%, %base_quality%, %base_tags%, happy, in a library"
+    runs: 3
+    
+  - template: "%base_character%, %base_quality%, sad, crying"
+    runs: 2
+```
+
+### 7.4 処理順序と組み合わせ
+
+```yaml
+# Constant + Iterator + Preset の組み合わせ例
+constants:
+  base_setup: "1girl, <preset:quality>"
+
+iterators:
+  emotion: ["happy", "sad", "angry"]
+
+prompts:
+  - template: "%base_setup%, $[emotion], sitting"
+```
+
+**処理順序**:
+1. Constant置換: `%base_setup%` → `"1girl, <preset:quality>"`
+2. Iterator置換: `$[emotion]` → `"happy"` (1回目)
+3. Preset解決: `<preset:quality>` → `"masterpiece, best quality"`
+
+**最終結果**: `"1girl, masterpiece, best quality, happy, sitting"`
+
+---
+## 8. Iterator機能（v2.7新機能）
+
+### 8.1 概要
 プロンプト内で特定の要素を順次（シーケンシャル）に変化させる機能です。ランダム選択ではなく、決定論的な順番でプロンプトの一部を置き換えることができます。
 
 **主要特徴**:
@@ -221,7 +282,7 @@ prompts:
 - 巡回ロジック（リストの要素不足時は先頭に戻る）
 - プリセットからの自動展開に対応
 
-### 7.2 Iterator定義
+### 8.2 Iterator定義
 
 ```yaml
 # Job設定ファイル内

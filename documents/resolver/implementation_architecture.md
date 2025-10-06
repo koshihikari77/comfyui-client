@@ -341,9 +341,99 @@ tests/
 **解決**: 空TagSet検出時に元テンプレート返却ロジック追加
 
 ---
-## 9. Iterator機能 実装詳細（v2.7新機能）
+## 9. Constant機能 実装詳細（v2.8新機能）
 
 ### 9.1 アーキテクチャ概要
+Constant機能は`SequenceJobExecutor`専用の最初のプリプロセッサとして実装されています。
+
+**処理フロー:**
+```
+JobConfig --読込--> Constants --実行時--> ConstantSubstitution --置換--> Template'
+                                                                      ↓
+                                                             IteratorSubstitution --置換--> Template'' --V2Pipeline--> Result
+```
+
+### 10.2 実装箇所
+
+#### 10.2.1 設定モデル拡張
+- **ファイル**: `core/schemas/config_models.py`
+- **追加フィールド**: `JobConfigModel.constants: Optional[Dict[str, str]]`
+- **バリデーション**: constant名の文字列検証、値の文字列検証
+
+#### 9.2.2 Config拡張
+- **ファイル**: `core/config.py` 
+- **追加プロパティ**: `constants: dict`
+- **戻り値**: `self.job_config_model.constants`
+
+#### 9.2.3 SequenceJobExecutor拡張
+- **ファイル**: `core/executors/sequence_executor.py`
+- **新メソッド**: `_substitute_constant_syntax(template: str) -> str`
+- **処理順序**: Constant → Iterator → V2Pipeline
+
+### 9.3 置換アルゴリム
+
+#### 9.3.1 記法検出
+```python
+pattern = r'%([a-zA-Z_][a-zA-Z0-9_]*)%'
+```
+
+**マッチング例:**
+- `%base_quality%` → グループ1: `base_quality`
+- `%base_character%` → グループ1: `base_character`
+- `%invalid-name%` → マッチしない（ハイフン不可）
+
+#### 9.3.2 置換処理
+```python
+def replace_constant(match):
+    constant_name = match.group(1)
+    if constant_name in constants:
+        return constants[constant_name]
+    else:
+        # 警告ログ出力
+        logger.warning(f"Constant '{constant_name}' が見つかりません")
+        return match.group(0)  # 元の文字列を返す
+```
+
+**特徴:**
+- 未定義constant警告（エラーではない）
+- 部分置換対応
+- エスケープ不要
+
+### 9.4 設定例とユースケース
+
+#### 9.4.1 基本使用例
+```yaml
+constants:
+  base_quality: "masterpiece, best quality, amazing quality"
+  base_character: "1girl, shiina yuika"
+
+prompts:
+  - template: "%base_character%, %base_quality%, happy"
+    runs: 3
+```
+
+#### 9.4.2 組み合わせ例
+```yaml
+constants:
+  base_setup: "1girl, <preset:quality>"
+
+iterators:
+  emotion: ["happy", "sad"]
+
+prompts:
+  - template: "%base_setup%, $[emotion], sitting"
+    runs: 4
+```
+
+**処理順序:**
+1. `%base_setup%` → `"1girl, <preset:quality>"`
+2. `$[emotion]` → `"happy"` (1回目)
+3. `<preset:quality>` → V2Pipeline処理
+
+---
+## 10. Iterator機能 実装詳細（v2.7新機能）
+
+### 10.1 アーキテクチャ概要
 Iterator機能は`SequenceJobExecutor`専用のプリプロセッサとして実装されています。
 
 **処理フロー:**

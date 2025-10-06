@@ -456,6 +456,54 @@ prompts:
   - 5回目: expression[0], location[1]
   - ...
 
+#### `sequence` のConstant機能（v2.8新機能）
+
+変化しない固定のプロンプト部分を定数として定義する機能を提供します。複数のプロンプトで共通する部分を一箇所で管理でき、保守性が向上します。
+
+**`constants`の構造:**
+```yaml
+constants:
+  <constant_name>: "<固定文字列>"
+  <constant_name2>: "<固定文字列2>"
+```
+
+**使用方法:**
+プロンプト内で`%constant_name%`記法を使用してConstantを参照します。
+
+**処理順序:**
+1. Constant置換 (`%...%`)
+2. Iterator置換 (`$[...]`)  
+3. プロンプト解決 (Preset、Wildcard等)
+
+**Constant機能付きの設定例:**
+```yaml
+job_type: "sequence"
+
+# 変化しない共通部分
+constants:
+  base_quality: "masterpiece, best quality, amazing quality"
+  base_character: "1girl, shiina yuika"
+  base_tags: "detailed skin, detailed beautiful face and eye"
+
+# Iterator定義
+iterators:
+  location:
+    - "in a library"
+    - "in a cafe"
+  emotion:
+    - "happy, smile"
+    - "sad, crying"
+
+prompts:
+  - template: "%base_character%, %base_quality%, %base_tags%, $[emotion], $[location]"
+    runs: 4
+```
+
+**動作:**
+- 1回目: "1girl, shiina yuika, masterpiece, best quality, amazing quality, detailed skin, detailed beautiful face and eye, happy, smile, in a library"
+- 2回目: "1girl, shiina yuika, masterpiece, best quality, amazing quality, detailed skin, detailed beautiful face and eye, sad, crying, in a cafe"
+- 3回目: "1girl, shiina yuika, masterpiece, best quality, amazing quality, detailed skin, detailed beautiful face and eye, happy, smile, in a library" (巡回)
+- 4回目: "1girl, shiina yuika, masterpiece, best quality, amazing quality, detailed skin, detailed beautiful face and eye, sad, crying, in a cafe" (巡回)
 
 
 

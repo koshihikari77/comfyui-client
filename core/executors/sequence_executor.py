@@ -32,8 +32,11 @@ class SequenceJobExecutor(BaseExecutor):
                 for i in range(num_runs):
                     run_counter += 1
                     
+                    # Constant記法の置換処理
+                    processed_template = self._substitute_constant_syntax(template)
+                    
                     # Iterator記法の置換処理
-                    processed_template = self._substitute_iterator_syntax(template, i)
+                    processed_template = self._substitute_iterator_syntax(processed_template, i)
                     
                     logger.info(f"  [{run_counter}/{total_runs}] Running with template: '{processed_template[:70]}...'")
                     
@@ -118,6 +121,35 @@ class SequenceJobExecutor(BaseExecutor):
         
         logger.info(f"Preprocessed {len(resolved)} iterators")
         return resolved
+
+    def _substitute_constant_syntax(self, template: str) -> str:
+        """
+        テンプレート内の%constant_name%を実際の値で置換
+        
+        Args:
+            template: 元のテンプレート文字列
+            
+        Returns:
+            置換済みテンプレート文字列
+        """
+        constants = self.config.constants
+        if not constants:
+            return template
+        
+        result = template
+        # %constant_name% パターンを検索して置換
+        pattern = r'%([a-zA-Z_][a-zA-Z0-9_]*)%'
+        
+        def replace_constant(match):
+            constant_name = match.group(1)
+            if constant_name in constants:
+                return constants[constant_name]
+            else:
+                logger.warning(f"Constant '{constant_name}' が見つかりません。そのまま残します。")
+                return match.group(0)  # 元の文字列を返す
+        
+        result = re.sub(pattern, replace_constant, result)
+        return result
 
     def _substitute_iterator_syntax(self, template: str, iteration_index: int) -> str:
         """
