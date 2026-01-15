@@ -229,4 +229,5 @@ variables:
 
 ---
 
-詳細な技術仕様については [documents/archi.md](documents/archi.md) を参照してください。 
+詳細な技術仕様については [documents/design_and_specification.md](documents/design_and_specification.md) を参照してください。  
+設定ファイルとプロンプト記法の使い方は [documents/config_and_prompt_guide.md](documents/config_and_prompt_guide.md) にまとめています。
