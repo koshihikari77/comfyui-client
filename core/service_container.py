@@ -54,12 +54,12 @@ class ServiceContainer(IServiceContainer):
                 logger.debug("Creating PromptResolverV2 instance")
                 # V2設定構築（configから必要な設定を抽出）
                 v2_config = {
-                    'ignore_tags': getattr(self.config, 'ignore_tags', []),
-                    'ignore_groups': getattr(self.config, 'ignore_groups', []),
-                    'placeholders': getattr(self.config, 'placeholders', {}),
-                    'locale': getattr(self.config, 'locale', ','),
-                    'strict_level': getattr(self.config, 'strict_level', 'warn'),
-                    'seed': getattr(self.config, 'seed', None)
+                    'ignore_tags': self.config.ignore_tags,
+                    'ignore_groups': self.config.ignore_groups,
+                    'placeholders': self.config.placeholders,
+                    'locale': self.config.locale,
+                    'strict_level': self.config.strict_level,
+                    'seed': self.config.seed
                 }
                 self._prompt_resolver = PromptResolverV2("configs/prompts", v2_config)
                 logger.info("🚀 PromptResolverV2 pipeline enabled")
@@ -77,11 +77,11 @@ class ServiceContainer(IServiceContainer):
     def get_prompt_resolver_v2(self, config: dict = None) -> PromptResolverV2:
         """明示的にV2 PromptResolverを取得"""
         v2_config = config or {
-            'ignore_tags': getattr(self.config, 'ignore_tags', []),
-            'ignore_groups': getattr(self.config, 'ignore_groups', []),
-            'placeholders': getattr(self.config, 'placeholders', {}),
-            'locale': getattr(self.config, 'locale', ','),
-            'strict_level': getattr(self.config, 'strict_level', 'warn'),
-            'seed': getattr(self.config, 'seed', None)
+            'ignore_tags': self.config.ignore_tags,
+            'ignore_groups': self.config.ignore_groups,
+            'placeholders': self.config.placeholders,
+            'locale': self.config.locale,
+            'strict_level': self.config.strict_level,
+            'seed': self.config.seed
         }
         return PromptResolverV2("configs/prompts", v2_config)

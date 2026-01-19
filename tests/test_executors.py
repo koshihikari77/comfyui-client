@@ -40,9 +40,10 @@ class TestGridSearchJobExecutor:
         
         # プレースホルダーがない場合は元の変数がそのまま返される
         assert len(processed_vars) == 1
-        assert processed_vars[0]['node_id'] == 1
-        assert processed_vars[0]['input_name'] == 'test_param'
-        assert processed_vars[0]['values'] == ['value1', 'value2']
+        # Pydanticモデルなので属性アクセスを使用
+        assert processed_vars[0].node_id == 1
+        assert processed_vars[0].input_name == 'test_param'
+        assert processed_vars[0].values == ['value1', 'value2']
     
     def test_preprocess_variables_with_placeholders(self, temp_config_dir, sample_connection_config, mock_service_container):
         """プレースホルダー付きの変数前処理テスト"""
@@ -90,11 +91,13 @@ class TestGridSearchJobExecutor:
         
         # プレースホルダーが展開されていることを確認
         assert len(processed_vars) == 1
-        assert processed_vars[0]['node_id'] == 1
-        assert processed_vars[0]['input_name'] == 'text'
+        # Pydanticモデルなので属性アクセスを使用
+        assert processed_vars[0].node_id == 1
+        assert processed_vars[0].input_name == 'text'
         
         # 2つのprompt × 2つのcharacter = 4つの値が生成される
-        expanded_values = processed_vars[0]['values']
+        # Pydanticモデルなので属性アクセスを使用
+        expanded_values = processed_vars[0].values
         assert len(expanded_values) == 4
         assert 'Hello Alice' in expanded_values
         assert 'Hello Bob' in expanded_values
@@ -142,7 +145,7 @@ class TestSequenceJobExecutor:
         executor = SequenceJobExecutor(config, mock_service_container)
         
         template = 'test prompt with wildcard'
-        params = executor._build_params(template)
+        params = executor._build_params(template, iteration_index=0)
         
         # パラメータが辞書として返されることを確認
         assert isinstance(params, dict)
@@ -344,28 +347,33 @@ class TestBaseExecutorMethods:
         config = Config(str(config_path), str(sample_connection_config))
         executor = SequenceJobExecutor(config, mock_service_container)
         
-        # Iterator事前処理テスト
+        # Iterator事前処理テスト（_preprocess_iterators()を呼んで_resolved_iteratorsを初期化）
         resolved_iterators = executor._preprocess_iterators()
         assert 'location' in resolved_iterators
         assert 'mood' in resolved_iterators
         assert resolved_iterators['location'] == ['library', 'cafe']
         assert resolved_iterators['mood'] == ['happy', 'sad', 'angry']
         
+        # _resolved_iteratorsとカウンタを設定（_preprocess_iterators()の結果を使用）
+        executor._resolved_iterators = resolved_iterators
+        executor._iterator_counters = {name: 0 for name in resolved_iterators.keys()}
+        
         # テンプレート置換テスト
         template = "1girl, $[location], $[mood]"
         
-        # 巡回ロジックテスト
+        # 巡回ロジックテスト（各Iteratorが独立に巡回）
         expected_substitutions = [
-            "1girl, library, happy",      # index 0: location[0], mood[0]
-            "1girl, cafe, sad",           # index 1: location[1], mood[1]  
-            "1girl, library, angry",      # index 2: location[0], mood[2] (locationが巡回)
-            "1girl, cafe, happy",         # index 3: location[1], mood[0] (moodが巡回)
-            "1girl, library, sad"         # index 4: location[0], mood[1] (両方巡回)
+            "1girl, library, happy",      # 1回目: location[0], mood[0]
+            "1girl, cafe, sad",           # 2回目: location[1], mood[1]  
+            "1girl, library, angry",      # 3回目: location[0], mood[2] (locationが巡回)
+            "1girl, cafe, happy",         # 4回目: location[1], mood[0] (moodが巡回)
+            "1girl, library, sad"         # 5回目: location[0], mood[1] (両方巡回)
         ]
         
         for i, expected in enumerate(expected_substitutions):
-            result = executor._substitute_iterator_syntax(template, i)
-            assert result == expected, f"Index {i}: expected '{expected}', got '{result}'"
+            # 各呼び出しでカウンタが自動的にインクリメントされる
+            result = executor._substitute_iterator_syntax(template)
+            assert result == expected, f"Call {i+1}: expected '{expected}', got '{result}'"
     
     def test_sequence_executor_expand_preset_iterator(self, temp_config_dir, sample_connection_config, mock_service_container):
         """expand_preset機能を使ったIteratorテスト"""

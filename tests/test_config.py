@@ -21,9 +21,10 @@ class TestConfig:
         assert config.job_name == 'test_job'
         assert config.server_address == 'http://localhost:8188'
         assert len(config.variables) == 1
-        assert config.variables[0]['node_id'] == 1
-        assert config.variables[0]['input_name'] == 'test_param'
-        assert config.variables[0]['values'] == ['value1', 'value2']
+        # Pydanticモデルなので属性アクセスを使用
+        assert config.variables[0].node_id == 1
+        assert config.variables[0].input_name == 'test_param'
+        assert config.variables[0].values == ['value1', 'value2']
     
     def test_missing_job_config_file(self, sample_connection_config):
         """存在しないジョブ設定ファイルでのエラーテスト"""
@@ -393,6 +394,73 @@ class TestConfig:
         assert second_combination.name == 'artistic_portrait'
         assert len(second_combination.parameters) == 3
 
+    def test_server_address_http_format(self, temp_config_dir, sample_job_config):
+        """server_addressのhttp://形式のテスト"""
+        connection_data = {
+            'server_address': 'http://localhost:8188'
+        }
+        
+        connection_path = temp_config_dir / 'connection_http.yaml'
+        with open(connection_path, 'w', encoding='utf-8') as f:
+            yaml.dump(connection_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(sample_job_config),
+            connection_config_path=str(connection_path)
+        )
+        
+        assert config.server_address == 'http://localhost:8188'
+    
+    def test_server_address_host_port_format(self, temp_config_dir, sample_job_config):
+        """server_addressのhost:port形式のテスト"""
+        connection_data = {
+            'server_address': 'localhost:8188'
+        }
+        
+        connection_path = temp_config_dir / 'connection_hostport.yaml'
+        with open(connection_path, 'w', encoding='utf-8') as f:
+            yaml.dump(connection_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(sample_job_config),
+            connection_config_path=str(connection_path)
+        )
+        
+        assert config.server_address == 'localhost:8188'
+    
+    def test_server_address_https_format(self, temp_config_dir, sample_job_config):
+        """server_addressのhttps://形式のテスト"""
+        connection_data = {
+            'server_address': 'https://example.com:8188'
+        }
+        
+        connection_path = temp_config_dir / 'connection_https.yaml'
+        with open(connection_path, 'w', encoding='utf-8') as f:
+            yaml.dump(connection_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(sample_job_config),
+            connection_config_path=str(connection_path)
+        )
+        
+        assert config.server_address == 'https://example.com:8188'
+    
+    def test_server_address_invalid_format(self, temp_config_dir, sample_job_config):
+        """server_addressの無効な形式のテスト"""
+        connection_data = {
+            'server_address': 'invalid_format'
+        }
+        
+        connection_path = temp_config_dir / 'connection_invalid.yaml'
+        with open(connection_path, 'w', encoding='utf-8') as f:
+            yaml.dump(connection_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="server_addressは有効なURL形式"):
+            Config(
+                job_config_path=str(sample_job_config),
+                connection_config_path=str(connection_path)
+            )
+    
     def test_parameter_combinations_validation_errors(self, temp_config_dir, sample_connection_config):
         """パラメータ組み合わせのバリデーションエラーテスト"""
         jobs_dir = temp_config_dir / 'jobs'

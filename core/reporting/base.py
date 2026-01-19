@@ -24,7 +24,8 @@ class JobReportData:
     job_name: str
     images: List[ImageData]
     variables: List[Dict[str, Any]]
-    variable_name: str  # 表示用の変数名（最初の変数）
+    variable_name: str  # 表示用の変数名（最初の変数、後方互換性のため保持）
+    image_parameters: List[Dict[str, Any]] = None  # 各画像の全パラメータ（Phase 4追加）
 
 
 class BaseReportGenerator(ABC):

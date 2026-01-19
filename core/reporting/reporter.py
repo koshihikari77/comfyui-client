@@ -79,14 +79,29 @@ class Reporter:
             logger.warning("No variables provided for image record conversion")
             return images
         
-        # 最初の変数を使用（BaseExecutorの既存動作を踏襲）
+        # 最初の変数を使用（BaseExecutorの既存動作を踏襲、後方互換性）
         first_variable = variables[0]
         
         for record in image_records:
             try:
-                # workflowからvariable_valueを抽出
-                workflow = json.loads(record['workflow'])
-                variable_value = workflow[str(first_variable['node_id'])]['inputs'][first_variable['input_name']]
+                variable_value = None
+                
+                # Phase 2: parametersから全variableの値を抽出（優先）
+                if 'parameters' in record and record['parameters']:
+                    try:
+                        parameters = json.loads(record['parameters'])
+                        # 最初のvariableの値を取得（後方互換性）
+                        first_var_key = f"{first_variable['node_id']}.{first_variable['input_name']}"
+                        variable_value = parameters.get(first_var_key)
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.debug(f"Failed to parse parameters for record {record.get('id')}: {e}")
+                
+                # parametersから取得できない場合はworkflowから抽出（フォールバック）
+                if variable_value is None:
+                    workflow = json.loads(record['workflow'])
+                    node_id_str = str(first_variable['node_id'])
+                    if node_id_str in workflow:
+                        variable_value = workflow[node_id_str]['inputs'].get(first_variable['input_name'])
                 
                 image_data = ImageData(
                     id=record['id'],

@@ -11,24 +11,47 @@ logger = logging.getLogger(__name__)
 
 class ComfyUI_APIClient(IAPIClient):
     def __init__(self, server_address: str, client_id: Optional[str] = None):
-        self.server_address = server_address
+        self.server_address = self._normalize_server_address(server_address)
         self.client_id = client_id or str(uuid.uuid4())
+    
+    def _normalize_server_address(self, address: str) -> str:
+        """
+        サーバーアドレスを正規化
+        
+        Args:
+            address: サーバーアドレス（http://host:port または host:port 形式）
+            
+        Returns:
+            正規化済みURL（http://host:port または https://host:port）
+        """
+        address = address.strip()
+        
+        # 既にhttp://またはhttps://で始まる場合はそのまま使用
+        if address.startswith('http://') or address.startswith('https://'):
+            return address
+        
+        # host:port形式の場合はhttp://を付加
+        if ':' in address:
+            return f"http://{address}"
+        
+        # その他の場合はエラー（validate_server_addressで検証済みのはず）
+        raise ValueError(f"Invalid server_address format: {address}")
 
     def queue_prompt(self, workflow: dict) -> str:
         p = {"prompt": workflow, "client_id": self.client_id}
         data = json.dumps(p).encode('utf-8')
-        req = urllib.request.Request(f"http://{self.server_address}/prompt", data=data)
+        req = urllib.request.Request(f"{self.server_address}/prompt", data=data)
         response = json.loads(urllib.request.urlopen(req).read())
         return response['prompt_id']
 
     def get_history(self, prompt_id: str) -> dict:
-        with urllib.request.urlopen(f"http://{self.server_address}/history/{prompt_id}") as response:
+        with urllib.request.urlopen(f"{self.server_address}/history/{prompt_id}") as response:
             return json.loads(response.read())
 
     def get_image_data(self, filename: str, subfolder: str, folder_type: str) -> bytes:
         data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
         url_values = urllib.parse.urlencode(data)
-        with urllib.request.urlopen(f"http://{self.server_address}/view?{url_values}") as response:
+        with urllib.request.urlopen(f"{self.server_address}/view?{url_values}") as response:
             return response.read()
 
     def get_generated_image(self, prompt_id: str) -> Optional[tuple[str, bytes]]:
@@ -46,7 +69,12 @@ class ComfyUI_APIClient(IAPIClient):
         return None
 
     def wait_for_completion(self, prompt_id: str):
-        ws_url = f"ws://{self.server_address}/ws?clientId={self.client_id}"
+        # HTTP URLからWebSocket URLに変換（http:// -> ws://, https:// -> wss://）
+        if self.server_address.startswith('https://'):
+            ws_base = self.server_address.replace('https://', 'wss://', 1)
+        else:
+            ws_base = self.server_address.replace('http://', 'ws://', 1)
+        ws_url = f"{ws_base}/ws?clientId={self.client_id}"
         
         # websocket.create_connection を使用する
         ws = websocket.create_connection(ws_url, timeout=300) # タイムアウトを追加すると安全

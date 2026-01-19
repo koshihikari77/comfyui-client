@@ -37,12 +37,13 @@ class MockDatabaseManager(IDatabaseManager):
             self.jobs[job_id]['status'] = 'completed'
         logger.debug(f"Mock: Completed job {job_id}")
     
-    def create_image_record(self, job_id: int, workflow: dict) -> int:
+    def create_image_record(self, job_id: int, workflow: dict, parameters: dict = None) -> int:
         image_id = self.next_image_id
         self.images[image_id] = {
             'id': image_id,
             'job_id': job_id,
             'workflow': json.dumps(workflow),
+            'parameters': json.dumps(parameters) if parameters is not None else None,
             'status': 'pending',
             'filepath': None
         }

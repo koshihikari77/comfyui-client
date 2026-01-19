@@ -3,7 +3,7 @@ Pydantic models for configuration validation
 """
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Literal
 from enum import Enum
 
 
@@ -15,21 +15,27 @@ class JobTypeEnum(str, Enum):
 
 class VariableModel(BaseModel):
     """変数定義のモデル"""
-    node_id: int = Field(..., description="ワークフローのノードID")
+    node_id: Union[int, str] = Field(..., description="ワークフローのノードIDまたはノード名")
     input_name: str = Field(..., min_length=1, description="入力パラメータ名")
     values: List[Any] = Field(..., min_length=1, description="値のリスト")
 
     @field_validator('node_id')
     @classmethod
     def validate_node_id(cls, v):
-        if v <= 0:
-            raise ValueError("node_idは正の整数である必要があります")
+        if isinstance(v, int):
+            if v <= 0:
+                raise ValueError("node_idは正の整数である必要があります")
+        elif isinstance(v, str):
+            if not v.strip():
+                raise ValueError("node_id（ノード名）は空文字列ではいけません")
+        else:
+            raise ValueError("node_idは整数または文字列である必要があります")
         return v
 
 
 class FixedParameterModel(BaseModel):
     """固定パラメータのモデル"""
-    node_id: int = Field(..., description="ワークフローのノードID")
+    node_id: Union[int, str] = Field(..., description="ワークフローのノードIDまたはノード名")
     input_name: str = Field(..., min_length=1, description="入力パラメータ名")
     value: Optional[Any] = Field(None, description="固定値（単一値）")
     values: Optional[List[Any]] = Field(None, description="固定値（リスト形式）")
@@ -37,8 +43,14 @@ class FixedParameterModel(BaseModel):
     @field_validator('node_id')
     @classmethod
     def validate_node_id(cls, v):
-        if v <= 0:
-            raise ValueError("node_idは正の整数である必要があります")
+        if isinstance(v, int):
+            if v <= 0:
+                raise ValueError("node_idは正の整数である必要があります")
+        elif isinstance(v, str):
+            if not v.strip():
+                raise ValueError("node_id（ノード名）は空文字列ではいけません")
+        else:
+            raise ValueError("node_idは整数または文字列である必要があります")
         return v
 
     @model_validator(mode='after')
@@ -53,7 +65,7 @@ class FixedParameterModel(BaseModel):
 
 class RandomParameterModel(BaseModel):
     """ランダムパラメータのモデル"""
-    node_id: int = Field(..., description="ワークフローのノードID")
+    node_id: Union[int, str] = Field(..., description="ワークフローのノードIDまたはノード名")
     input_name: str = Field(..., min_length=1, description="入力パラメータ名")
     type: str = Field(default="float", description="値の型")
     
@@ -66,8 +78,14 @@ class RandomParameterModel(BaseModel):
     @field_validator('node_id')
     @classmethod
     def validate_node_id(cls, v):
-        if v <= 0:
-            raise ValueError("node_idは正の整数である必要があります")
+        if isinstance(v, int):
+            if v <= 0:
+                raise ValueError("node_idは正の整数である必要があります")
+        elif isinstance(v, str):
+            if not v.strip():
+                raise ValueError("node_id（ノード名）は空文字列ではいけません")
+        else:
+            raise ValueError("node_idは整数または文字列である必要があります")
         return v
 
     @model_validator(mode='after')
@@ -92,15 +110,21 @@ class IteratorItemModel(BaseModel):
 
 class ParameterItemModel(BaseModel):
     """パラメータ組み合わせの個別項目"""
-    node_id: int = Field(..., description="ワークフローのノードID")
+    node_id: Union[int, str] = Field(..., description="ワークフローのノードIDまたはノード名")
     input_name: str = Field(..., min_length=1, description="入力パラメータ名")
     value: Union[int, float, str] = Field(..., description="パラメータ値")
 
     @field_validator('node_id')
     @classmethod
     def validate_node_id(cls, v):
-        if v <= 0:
-            raise ValueError("node_idは正の整数である必要があります")
+        if isinstance(v, int):
+            if v <= 0:
+                raise ValueError("node_idは正の整数である必要があります")
+        elif isinstance(v, str):
+            if not v.strip():
+                raise ValueError("node_id（ノード名）は空文字列ではいけません")
+        else:
+            raise ValueError("node_idは整数または文字列である必要があります")
         return v
 
 
@@ -134,6 +158,13 @@ class JobConfigModel(BaseModel):
     job_name: str = Field(..., min_length=1, description="ジョブ名")
     job_type: JobTypeEnum = Field(default=JobTypeEnum.GRID_SEARCH, description="ジョブタイプ")
     base_workflow: Optional[str] = Field(None, description="ベースワークフローファイル")
+    
+    # PromptResolver設定（設計書§4.1.1）
+    ignore_tags: Optional[List[str]] = Field(default=[], description="無視するタグリスト")
+    ignore_groups: Optional[List[str]] = Field(default=[], description="無視するグループリスト")
+    locale: Optional[Literal[",", "、", ";"]] = Field(default=",", description="区切り文字")
+    strict_level: Optional[Literal["soft", "warn", "error"]] = Field(default="warn", description="エラー処理レベル")
+    seed: Optional[int] = Field(default=None, description="乱数シード")
     
     # グリッドサーチ用
     variables: List[VariableModel] = Field(default=[], description="変数定義")
@@ -263,7 +294,30 @@ class ConnectionConfigModel(BaseModel):
     @field_validator('server_address')
     @classmethod
     def validate_server_address(cls, v):
-        """サーバーアドレスの基本的な形式チェック"""
-        if not (v.startswith('http://') or v.startswith('https://') or ':' in v):
-            raise ValueError("server_addressは有効なURL形式またはhost:port形式である必要があります")
-        return v
+        """
+        サーバーアドレスの基本的な形式チェック
+        
+        許可される形式:
+        - http://host:port
+        - https://host:port
+        - host:port
+        """
+        v = v.strip()
+        
+        # http://またはhttps://で始まる場合はOK
+        if v.startswith('http://') or v.startswith('https://'):
+            return v
+        
+        # host:port形式をチェック
+        if ':' in v:
+            parts = v.split(':')
+            if len(parts) == 2:
+                host, port = parts
+                # ポート番号が数値かチェック
+                try:
+                    int(port)
+                    return v
+                except ValueError:
+                    raise ValueError(f"server_addressのポート番号が無効です: {port}")
+        
+        raise ValueError("server_addressは有効なURL形式（http://host:port または https://host:port）またはhost:port形式である必要があります")

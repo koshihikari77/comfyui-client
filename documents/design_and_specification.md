@@ -1546,9 +1546,9 @@ ComfyVの全メタデータは単一のSQLiteデータベース（`results/index
 | `id` | INTEGER | 画像ID | PK, AUTOINCREMENT |
 | `job_id` | INTEGER | ジョブID（外部キー） | FK → jobs.id |
 | `filepath` | TEXT | ファイルパス | |
-| `workflow` | TEXT | 実行ワークフロー（JSON） | |
-| `parameters` | TEXT | 適用パラメータ（JSON） | |
-| `status` | TEXT | ステータス（pending/success/failed） | |
+| `workflow` | TEXT | 実行ワークフロー（JSON） | NOT NULL |
+| `parameters` | TEXT | 適用パラメータ（JSON） | NULL許可（後方互換性、Phase 2で追加） |
+| `status` | TEXT | ステータス（pending/success/failed） | NOT NULL |
 | `created_at` | TIMESTAMP | 作成日時 | DEFAULT CURRENT_TIMESTAMP |
 
 ##### ER図
@@ -1641,8 +1641,10 @@ base_workflow: "./workflows/base.json"
 # プロンプトディレクトリ
 prompts_dir: "configs/prompts"  # デフォルト
 
-# サーバーアドレス
-server_address: "127.0.0.1:8188"  # デフォルト
+# サーバーアドレス（http://host:port または host:port 形式）
+server_address: "127.0.0.1:8188"  # host:port形式（推奨）
+# server_address: "http://localhost:8188"  # http://形式も可
+# server_address: "https://example.com:8188"  # https://形式も可
 
 # PromptResolver設定
 ignore_tags: []

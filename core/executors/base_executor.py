@@ -151,7 +151,8 @@ class BaseExecutor(abc.ABC):
     def _execute_single_run(self, job_id: int, workflow: dict, params: dict):
         """1回の画像生成を実行し、結果をDBに保存する"""
         # DBに保存するworkflowは、パラメータ適用後のもの
-        image_id = self.db.create_image_record(job_id, workflow)
+        # parametersも保存して完全な再現性を確保（設計書要件）
+        image_id = self.db.create_image_record(job_id, workflow, params)
         
         try:
             prompt_id = self.api.queue_prompt(workflow)

@@ -12,6 +12,7 @@ class SequenceJobExecutor(BaseExecutor):
     def __init__(self, config: Config, service_container: IServiceContainer):
         super().__init__(config, service_container)
         self._resolved_iterators: Dict[str, List[str]] = {}
+        self._iterator_counters: Dict[str, int] = {}  # 各Iteratorの独立カウンタ
     
     def run(self):
         job_id = self.db.create_job(self.config.job_name, self.config.job_config_data)
@@ -20,6 +21,8 @@ class SequenceJobExecutor(BaseExecutor):
         try:
             # Iterator事前処理
             self._resolved_iterators = self._preprocess_iterators()
+            # 各Iteratorのカウンタを初期化
+            self._iterator_counters = {name: 0 for name in self._resolved_iterators.keys()}
             
             total_runs = sum((p.runs or self.config.default_runs) for p in self.config.prompts)
             run_counter = 0
@@ -35,12 +38,12 @@ class SequenceJobExecutor(BaseExecutor):
                     # Constant記法の置換処理
                     processed_template = self._substitute_constant_syntax(template)
                     
-                    # Iterator記法の置換処理
-                    processed_template = self._substitute_iterator_syntax(processed_template, i)
+                    # Iterator記法の置換処理（各Iteratorが独立に巡回）
+                    processed_template = self._substitute_iterator_syntax(processed_template)
                     
                     logger.info(f"  [{run_counter}/{total_runs}] Running with template: '{processed_template[:70]}...'")
                     
-                    params = self._build_params(processed_template, i)
+                    params = self._build_params(processed_template, run_counter - 1)
                     workflow = self._prepare_workflow(params)
                     self._execute_single_run(job_id, workflow, params)
 
@@ -57,17 +60,19 @@ class SequenceJobExecutor(BaseExecutor):
         # 1. 固定パラメータを適用（最低優先度）
         if self.config.fixed_parameters:
             for p in self.config.fixed_parameters:
-                key = f"{p['node_id']}.{p['input_name']}"
-                params[key] = p['value']
+                # Pydanticモデルなので属性アクセスを使用
+                key = f"{p.node_id}.{p.input_name}"
+                params[key] = p.value
 
         # 2. ランダムパラメータを生成（中優先度）
         if self.config.random_parameters:
             for p in self.config.random_parameters:
-                key = f"{p['node_id']}.{p['input_name']}"
-                if p['type'] == 'int':
-                    params[key] = random.randint(p['range'][0], p['range'][1])
-                elif p['type'] == 'choice':
-                    params[key] = random.choice(p['values'])
+                # Pydanticモデルなので属性アクセスを使用
+                key = f"{p.node_id}.{p.input_name}"
+                if p.type == 'int':
+                    params[key] = random.randint(p.range[0], p.range[1])
+                elif p.type == 'choice':
+                    params[key] = random.choice(p.values)
         
         # 3. パラメータ組み合わせを適用（最高優先度）
         if self.config.parameter_combinations:
@@ -160,19 +165,18 @@ class SequenceJobExecutor(BaseExecutor):
         result = re.sub(pattern, replace_constant, result)
         return result
 
-    def _substitute_iterator_syntax(self, template: str, iteration_index: int) -> str:
+    def _substitute_iterator_syntax(self, template: str) -> str:
         """
         テンプレート内の$[iterator_name]を実際の値で置換
         
         Args:
-            template: 元のテンプレート文字列  
-            iteration_index: 現在の反復インデックス（0ベース）
+            template: 元のテンプレート文字列
             
         Returns:
             置換済みテンプレート文字列
             
         Logic:
-            各iterator_listに対してindex % len(iterator_list)で巡回
+            各Iteratorが独立に巡回（各Iteratorごとにカウンタを保持）
         """
         if not self._resolved_iterators:
             return template
@@ -192,11 +196,15 @@ class SequenceJobExecutor(BaseExecutor):
                 logger.warning(f"Iterator '{iterator_name}' is empty")
                 return match.group(0)
             
-            # 巡回ロジック：index % len(iterator_list)
-            selected_index = iteration_index % len(iterator_list)
+            # 各Iteratorが独立に巡回（カウンタを使用）
+            current_counter = self._iterator_counters.get(iterator_name, 0)
+            selected_index = current_counter % len(iterator_list)
             selected_value = iterator_list[selected_index]
             
-            logger.debug(f"Iterator '{iterator_name}': index {iteration_index} -> {selected_index} -> '{selected_value}'")
+            # カウンタをインクリメント（次の呼び出しで次の値を使用）
+            self._iterator_counters[iterator_name] = current_counter + 1
+            
+            logger.debug(f"Iterator '{iterator_name}': counter {current_counter} -> index {selected_index} -> '{selected_value}'")
             return selected_value
         
         result = re.sub(pattern, replace_match, template)

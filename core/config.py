@@ -55,6 +55,17 @@ class Config:
                 elif 'values' in error_str:
                     raise ValueError("Missing required key in 'variable': 'values'")
             elif 'server_address' in error_str:
+                # server_addressのバリデーションエラーを適切に処理
+                error_messages = []
+                for error in e.errors():
+                    if 'server_address' in str(error.get('loc', [])):
+                        error_messages.append(error['msg'])
+                if error_messages:
+                    # バリデーションエラー（形式不正）
+                    if 'Value error' in error_str or 'value_error' in error_str.lower():
+                        raise ValueError(f"server_addressは有効なURL形式: {error_messages[0]}")
+                    # 必須フィールドエラー
+                    raise ValueError("Missing required key in connection config: 'server_address'")
                 raise ValueError("Missing required key in connection config: 'server_address'")
             
             # デフォルトケース: より詳細なエラーメッセージ
@@ -63,7 +74,12 @@ class Config:
                 field_path = '.'.join(str(loc) for loc in error['loc'])
                 error_messages.append(f"Field '{field_path}': {error['msg']}")
             
-            if 'variables' in error_str or 'job_name' in error_str or 'base_workflow' in error_str or 'parameter_combinations' in error_str:
+            # prompts, iteratorsのエラーも適切に処理
+            if 'prompts' in error_str and ('無効なプロンプト形式' in error_str or 'model_type' in error_str.lower()):
+                raise ValueError(f"無効なプロンプト形式: {'; '.join(error_messages)}")
+            elif 'iterators' in error_str and ('空でないリスト' in error_str or 'value_error' in error_str.lower()):
+                raise ValueError(f"Iterator設定エラー: {'; '.join(error_messages)}")
+            elif 'variables' in error_str or 'job_name' in error_str or 'base_workflow' in error_str or 'parameter_combinations' in error_str:
                 raise ValueError(f"Config validation failed: {'; '.join(error_messages)}")
             elif 'server_address' in error_str:
                 raise ValueError(f"Connection config validation failed: {'; '.join(error_messages)}")
@@ -131,11 +147,38 @@ class Config:
 
     @property
     def fixed_parameters(self) -> list:
-        return self.job_data.get('fixed_parameters', [])
+        """固定パラメータ（Pydanticモデルのリスト）"""
+        return self.job_config_model.fixed_parameters
 
     @property
     def random_parameters(self) -> list:
-        return self.job_data.get('random_parameters', [])
+        """ランダムパラメータ（Pydanticモデルのリスト）"""
+        return self.job_config_model.random_parameters
+
+    @property
+    def ignore_tags(self) -> list:
+        """無視するタグリスト（PromptResolver設定）"""
+        return self.job_config_model.ignore_tags or []
+
+    @property
+    def ignore_groups(self) -> list:
+        """無視するグループリスト（PromptResolver設定）"""
+        return self.job_config_model.ignore_groups or []
+
+    @property
+    def locale(self) -> str:
+        """区切り文字（PromptResolver設定）"""
+        return self.job_config_model.locale or ","
+
+    @property
+    def strict_level(self) -> str:
+        """エラー処理レベル（PromptResolver設定）"""
+        return self.job_config_model.strict_level or "warn"
+
+    @property
+    def seed(self) -> int:
+        """乱数シード（PromptResolver設定）"""
+        return self.job_config_model.seed
 
     @property
     def base_workflow_path(self) -> Path:

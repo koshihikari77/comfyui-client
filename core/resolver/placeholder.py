@@ -246,14 +246,14 @@ class PlaceholderSubstitutor:
         Returns:
             テンプレート構文が含まれている場合True
         """
-        # Preset構文: <preset:xxx> （改善：preset:を厳密チェック）
-        if re.search(r'<preset:[A-Za-z0-9_#+-]+>', choice):
+        # Preset構文: <preset:xxx> （/を含むキーに対応、Phase 5改善）
+        if re.search(r'<preset:[A-Za-z0-9_#+\-/]+>', choice):
             return True
         # Placeholder構文: {xxx} （改善：内容を厳密チェック）
         if re.search(r'\{[A-Za-z0-9_]+\}', choice):
             return True
-        # Wildcard構文: __xxx__ （改善：部分一致チェック）
-        if re.search(r'__[A-Za-z0-9_-]+__', choice):
+        # Wildcard構文: __xxx__ （/を含むキーに対応、Phase 5改善）
+        if re.search(r'__[A-Za-z0-9_\-/]+__', choice):
             return True
         return False
     
