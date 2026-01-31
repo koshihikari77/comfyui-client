@@ -176,7 +176,7 @@ class JobConfigModel(BaseModel):
     default_runs: Optional[int] = Field(default=1, description="デフォルトrun数")
     prompts: List[Union[PromptModel, List[str], Dict[str, Any]]] = Field(default=[], description="プロンプト定義（シーケンス用）")
     iterators: Optional[Dict[str, Union[List[str], Dict[str, str]]]] = Field(default={}, description="Iterator定義（手動リストまたはexpand_preset指示）")
-    constants: Optional[Dict[str, str]] = Field(default={}, description="定数定義（%constant_name%記法で参照）")
+    constants: Optional[Dict[str, Union[str, List[str]]]] = Field(default={}, description="定数定義（%constant_name%記法で参照。値はstrまたはList[str]）")
     parameter_combinations: Optional[List[ParameterCombinationModel]] = Field(default=[], description="パラメータ組み合わせ定義（実行時に順次適用）")
 
     @model_validator(mode='after')
@@ -256,15 +256,19 @@ class JobConfigModel(BaseModel):
     @field_validator('constants')
     @classmethod
     def validate_constants(cls, v):
-        """Constants定義の形式チェック"""
-        if not v:  # 空の場合はOK
+        """Constants定義の形式チェック（値はstrまたはList[str]）"""
+        if not v:
             return v
         
         for constant_name, constant_value in v.items():
             if not isinstance(constant_name, str) or len(constant_name) == 0:
                 raise ValueError(f"Constant名 '{constant_name}' は空でない文字列である必要があります")
-            if not isinstance(constant_value, str):
-                raise ValueError(f"Constant '{constant_name}' の値は文字列である必要があります")
+            if isinstance(constant_value, list):
+                for item in constant_value:
+                    if not isinstance(item, str):
+                        raise ValueError(f"Constant '{constant_name}' のリスト要素は文字列である必要があります")
+            elif not isinstance(constant_value, str):
+                raise ValueError(f"Constant '{constant_name}' の値は文字列または文字列のリストである必要があります")
         
         return v
 

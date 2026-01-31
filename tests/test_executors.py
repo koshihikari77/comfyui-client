@@ -169,6 +169,28 @@ class TestSequenceJobExecutor:
         # 画像レコードが作成されているか確認（3回実行分）
         assert len(db.images) == 3
 
+    def test_substitute_constant_syntax_with_list(self, temp_config_dir, sample_connection_config, mock_service_container):
+        """constants の値が List[str] のとき %name% が ", ".join(list) で置換されるテスト"""
+        import yaml
+        from core.config import Config
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        config_data = {
+            'job_name': 'constants_list_subst',
+            'job_type': 'sequence',
+            'constants': {
+                'tags': ['masterpiece', 'best quality', '1girl']
+            },
+            'prompts': [{'template': 'dummy', 'runs': 1}]
+        }
+        config_path = jobs_dir / 'constants_list_job.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(str(config_path), str(sample_connection_config))
+        executor = SequenceJobExecutor(config, mock_service_container)
+        result = executor._substitute_constant_syntax('%tags%, standing')
+        assert result == "masterpiece, best quality, 1girl, standing"
+
 
 class TestBaseExecutorMethods:
     """BaseExecutorの共通メソッドのテスト"""

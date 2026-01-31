@@ -133,6 +133,18 @@ prompts:
     runs: 2
 ```
 
+定数の値は **文字列（str）** または **リスト（List[str]）** を指定できます。リストの場合はテンプレート置換時に `", ".join(list)` で結合されます。
+
+```yaml
+constants:
+  tags: ["masterpiece", "best quality", "1girl"]
+
+prompts:
+  - template: "%tags%, standing"
+    runs: 1
+# → "masterpiece, best quality, 1girl, standing"
+```
+
 #### 制約（現行実装）
 - 定数名は正規表現 `([a-zA-Z_][a-zA-Z0-9_]*)` に一致する必要があります。
   - OK: `%base_quality%`
@@ -312,7 +324,8 @@ prompts_delta:
 | `_id` | このシーンのID（参照用） | `_id: scene_a` |
 | `_from` | 継承元（`base` or ID） | `_from: base` |
 | `_unset` | slotを出力から除外 | `_unset: [action]` |
-| `_add` | 配列slotに追加 | `_add: {extra: "tag"}` |
+| `_add` | slotにタグを追加（str はカンマ区切りで分割して追加） | `_add: {extra: "tag"}` |
+| `_del` | slotからタグを完全一致で削除（存在しないタグは無視） | `_del: {extra: "tag"}` |
 | `_runs` | このpromptのruns指定 | `_runs: 3` |
 | `_name` | prompt名 | `_name: "scene1"` |
 

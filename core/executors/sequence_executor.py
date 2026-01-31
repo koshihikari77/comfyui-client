@@ -157,7 +157,8 @@ class SequenceJobExecutor(BaseExecutor):
         def replace_constant(match):
             constant_name = match.group(1)
             if constant_name in constants:
-                return constants[constant_name]
+                val = constants[constant_name]
+                return ", ".join(val) if isinstance(val, list) else val
             else:
                 logger.warning(f"Constant '{constant_name}' が見つかりません。そのまま残します。")
                 return match.group(0)  # 元の文字列を返す

@@ -14,6 +14,25 @@ logger = logging.getLogger(__name__)
 # prompts_delta コンパイラ
 # =============================================================================
 
+def _normalize_slot_value(value: Any) -> Optional[List[str]]:
+    """
+    slotの値を List[str] | None に正規化する。
+    - null → None
+    - List[str] → 空でない要素のみ
+    - str → カンマ区切りで分割してリスト化
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        out = [v.strip() for v in value if isinstance(v, str) and v.strip()]
+        return out
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        return [s.strip() for s in value.split(',') if s.strip()]
+    return None
+
+
 def compile_prompts_delta(job_raw_data: dict) -> dict:
     """
     prompts_delta 記法を従来の prompts 形式にコンパイルする。
@@ -24,9 +43,11 @@ def compile_prompts_delta(job_raw_data: dict) -> dict:
       - _id: 任意ID（未指定なら自動連番）
       - _from: 参照元（"base" = 初期テンプレ, ID = そのIDのstate, 省略 = 直前state）
       - _unset: List[str]（slotを出力から除外）
-      - _add: Dict[str, str|List[str]]（配列slotに追加）
+      - _add: Dict[str, str|List[str]]（slotにタグを追加）
+      - _del: Dict[str, str|List[str]]（slotからタグを完全一致で削除）
       - _runs: int（このpromptだけのruns指定）
       - _name: str（prompt名）
+    - slotの値は内部的に常に List[str]|None に正規化される（str はカンマ区切りで分割）
     
     Args:
         job_raw_data: 読み込んだjob config辞書
@@ -92,64 +113,67 @@ def _compile_delta_items(
     """
     compiled = []
     
-    # 各IDごとの解決済みstateを保持
-    resolved_states: Dict[str, Dict[str, Any]] = {}
-    resolved_states['base'] = copy.deepcopy(base_slots)
+    # base_slots を List[str]|None に正規化
+    base_normalized: Dict[str, Optional[List[str]]] = {}
+    for k, v in base_slots.items():
+        base_normalized[k] = _normalize_slot_value(v)
     
-    # 直前のstate（先頭はbaseと同じ）
-    prev_state: Dict[str, Any] = copy.deepcopy(base_slots)
+    # 各IDごとの解決済みstateを保持（値は常に List[str]|None）
+    resolved_states: Dict[str, Dict[str, Optional[List[str]]]] = {}
+    resolved_states['base'] = copy.deepcopy(base_normalized)
+    
+    prev_state: Dict[str, Optional[List[str]]] = copy.deepcopy(base_normalized)
     
     for idx, item in enumerate(delta_items):
-        # 予約キーを抽出
         item_id = item.get('_id', str(idx))
         from_ref = item.get('_from')
         unset_keys = item.get('_unset', [])
         add_dict = item.get('_add', {})
+        del_dict = item.get('_del', {})
         runs = item.get('_runs')
         name = item.get('_name')
         
-        # ベースstateを決定
         if from_ref is not None:
             if from_ref == 'base':
-                current_state = copy.deepcopy(base_slots)
+                current_state = copy.deepcopy(base_normalized)
             elif from_ref in resolved_states:
                 current_state = copy.deepcopy(resolved_states[from_ref])
             else:
                 raise ValueError(f"prompts_delta[{idx}]: _from で参照した ID '{from_ref}' は存在しません。")
         else:
-            # 直前stateを継承
             current_state = copy.deepcopy(prev_state)
         
-        # set: 予約キー以外のキーを上書き
+        # set: 予約キー以外のキーを上書き（正規化して List[str]|None）
         for key, value in item.items():
             if not key.startswith('_'):
-                current_state[key] = value
+                current_state[key] = _normalize_slot_value(value)
         
-        # unset: 指定slotを除外（Noneに）
         for key in unset_keys:
             current_state[key] = None
         
-        # add: 配列slotに追加
+        # _add: タグを追加
         for key, add_value in add_dict.items():
             existing = current_state.get(key)
             if existing is None:
                 existing = []
-            elif isinstance(existing, str):
-                existing = [existing]
-            elif isinstance(existing, list):
-                existing = list(existing)  # コピー
             else:
-                existing = []
-            
-            # add_value を追加
-            if isinstance(add_value, list):
-                existing.extend(add_value)
-            else:
-                existing.append(add_value)
-            
+                existing = list(existing)
+            to_add = _normalize_slot_value(add_value)
+            if to_add:
+                existing.extend(to_add)
             current_state[key] = existing
         
-        # stateを保存
+        # _del: 完全一致でタグを削除
+        for key, del_value in del_dict.items():
+            existing = current_state.get(key)
+            if existing is None or not isinstance(existing, list):
+                continue
+            to_remove = _normalize_slot_value(del_value)
+            if not to_remove:
+                continue
+            remove_set = set(to_remove)
+            current_state[key] = [t for t in existing if t not in remove_set]
+        
         resolved_states[str(item_id)] = copy.deepcopy(current_state)
         prev_state = copy.deepcopy(current_state)
         
@@ -172,34 +196,19 @@ def _compile_delta_items(
     return compiled
 
 
-def _flatten_state_to_tags(state: Dict[str, Any], order: List[str]) -> List[str]:
+def _flatten_state_to_tags(state: Dict[str, Optional[List[str]]], order: List[str]) -> List[str]:
     """
     stateをorderに従ってフラットなタグリストに変換。
-    
-    Args:
-        state: 現在のslot状態
-        order: 出力順序
-        
-    Returns:
-        List[str]: フラット化されたタグリスト
+    stateの値は常に List[str]|None に正規化されている前提。
     """
     tags = []
-    
     for slot_name in order:
         value = state.get(slot_name)
-        
         if value is None:
-            # スキップ
             continue
-        elif isinstance(value, str):
-            if value:  # 空文字列はスキップ
-                tags.append(value)
-        elif isinstance(value, list):
-            for v in value:
-                if v and isinstance(v, str):
-                    tags.append(v)
-        # それ以外の型は無視
-    
+        for v in value:
+            if v and isinstance(v, str):
+                tags.append(v)
     return tags
 
 class Config:

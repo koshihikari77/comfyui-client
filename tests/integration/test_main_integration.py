@@ -134,6 +134,41 @@ class TestMainIntegration:
         assert result.returncode == 0, f"Process failed with stderr: {result.stderr}"
         output = result.stderr
         assert "Verification job completed successfully!" in output
+
+    def test_main_dump_prompts(self, integration_temp_dir, integration_connection_config):
+        """--dump-prompts: sequenceジョブの解決済みプロンプトを1行1件でファイルに出力する"""
+        dump_job_data = {
+            'job_name': 'dump_prompts_test',
+            'job_type': 'sequence',
+            'constants': {
+                'base': 'masterpiece, best quality',
+            },
+            'iterators': {
+                'loc': ['park', 'cafe'],
+            },
+            'prompts': [
+                {'template': '%base%, 1girl, $[loc]', 'runs': 2},
+            ],
+        }
+        job_path = integration_temp_dir / 'dump_prompts_job.yaml'
+        with open(job_path, 'w', encoding='utf-8') as f:
+            yaml.dump(dump_job_data, f, default_flow_style=False)
+        out_path = integration_temp_dir / 'out_prompts.txt'
+        main_path = Path(__file__).resolve().parent.parent.parent / 'main.py'
+        cmd = [
+            sys.executable, str(main_path),
+            '--job-config', str(job_path),
+            '--connection-config', str(integration_connection_config),
+            '--dump-prompts', str(out_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=main_path.parent)
+        assert result.returncode == 0, f"Process failed with stderr: {result.stderr}"
+        assert out_path.exists(), f"Output file not created: {out_path}"
+        lines = out_path.read_text(encoding='utf-8').strip().split('\n')
+        assert len(lines) == 2, f"Expected 2 lines (runs=2), got {len(lines)}"
+        # Constant and iterator substitution
+        assert 'masterpiece' in lines[0] and '1girl' in lines[0] and 'park' in lines[0]
+        assert 'masterpiece' in lines[1] and '1girl' in lines[1] and 'cafe' in lines[1]
     
     def test_main_missing_job_config(self, integration_connection_config):
         """ジョブ設定ファイルが存在しない場合のエラーハンドリング"""

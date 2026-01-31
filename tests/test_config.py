@@ -879,3 +879,86 @@ class TestPromptsDelta:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+
+    def test_prompts_delta_with_del(self, temp_config_dir, sample_connection_config):
+        """_del でタグを完全一致削除するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'prompts_delta_del',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'extra'],
+                'slots': {
+                    'quality': 'masterpiece, best quality',
+                    'subject': '1girl',
+                    'extra': 'blue eyes, blonde hair, smile'
+                }
+            },
+            'prompts_delta': [
+                {},
+                {'_del': {'extra': 'blonde hair'}},
+                {'_del': {'extra': ['blue eyes', 'smile']}}
+            ]
+        }
+        config_path = jobs_dir / 'prompts_delta_del.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "masterpiece, best quality, 1girl, blue eyes, blonde hair, smile"
+        assert config.prompts[1].template == "masterpiece, best quality, 1girl, blue eyes, smile"
+        assert config.prompts[2].template == "masterpiece, best quality, 1girl"
+
+    def test_prompts_delta_str_slot_normalized_add_del(self, temp_config_dir, sample_connection_config):
+        """slotがstrでも正規化され_add/_delが動くテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'prompts_delta_str_slot',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['tags'],
+                'slots': {'tags': 'a, b, c'}
+            },
+            'prompts_delta': [
+                {'_del': {'tags': 'b'}},
+                {'_add': {'tags': 'd'}}
+            ]
+        }
+        config_path = jobs_dir / 'prompts_delta_str_slot.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 2
+        assert config.prompts[0].template == "a, c"
+        assert config.prompts[1].template == "a, c, d"
+
+    def test_constants_accept_list(self, temp_config_dir, sample_connection_config):
+        """constants の値が List[str] でも受け付けるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'constants_list_test',
+            'job_type': 'sequence',
+            'constants': {
+                'tags': ['masterpiece', 'best quality', '1girl']
+            },
+            'prompts': [
+                {'template': '%tags%, standing', 'runs': 1}
+            ]
+        }
+        config_path = jobs_dir / 'constants_list.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert config.constants['tags'] == ['masterpiece', 'best quality', '1girl']
