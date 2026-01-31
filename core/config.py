@@ -1,11 +1,206 @@
 import yaml
 import logging
+import copy
 from pathlib import Path
+from typing import Dict, List, Any, Optional, Union
 from pydantic import ValidationError
 
 from .schemas.config_models import JobConfigModel, ConnectionConfigModel
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# prompts_delta コンパイラ
+# =============================================================================
+
+def compile_prompts_delta(job_raw_data: dict) -> dict:
+    """
+    prompts_delta 記法を従来の prompts 形式にコンパイルする。
+    
+    prompts_delta は差分ベースでプロンプトを記述できる拡張記法:
+    - 基本形: { slotA: value, slotB: [tag1, tag2] } は set と同義
+    - 予約キー:
+      - _id: 任意ID（未指定なら自動連番）
+      - _from: 参照元（"base" = 初期テンプレ, ID = そのIDのstate, 省略 = 直前state）
+      - _unset: List[str]（slotを出力から除外）
+      - _add: Dict[str, str|List[str]]（配列slotに追加）
+      - _runs: int（このpromptだけのruns指定）
+      - _name: str（prompt名）
+    
+    Args:
+        job_raw_data: 読み込んだjob config辞書
+        
+    Returns:
+        prompts_delta がコンパイルされた job_raw_data（元データを変更しない）
+        
+    Raises:
+        ValueError: prompts と prompts_delta が両方存在する場合
+        ValueError: prompt_template が無いのに prompts_delta がある場合
+        ValueError: _from で参照したIDが存在しない場合
+    """
+    has_prompts = bool(job_raw_data.get('prompts'))
+    has_prompts_delta = bool(job_raw_data.get('prompts_delta'))
+    
+    # 両方存在したらエラー
+    if has_prompts and has_prompts_delta:
+        raise ValueError("'prompts' と 'prompts_delta' は同時に指定できません。どちらか一方を使用してください。")
+    
+    # prompts_delta が無ければ何もしない
+    if not has_prompts_delta:
+        return job_raw_data
+    
+    # prompt_template が必須
+    prompt_template = job_raw_data.get('prompt_template')
+    if not prompt_template:
+        raise ValueError("'prompts_delta' を使用する場合は 'prompt_template' が必須です。")
+    
+    # order と slots を取得
+    order = prompt_template.get('order')
+    slots = prompt_template.get('slots', {})
+    
+    if not order:
+        raise ValueError("'prompt_template.order' は必須です。")
+    
+    # コンパイル処理
+    prompts_delta = job_raw_data['prompts_delta']
+    compiled_prompts = _compile_delta_items(prompts_delta, order, slots)
+    
+    # 結果を新しい辞書にコピーして返す
+    result = copy.copy(job_raw_data)
+    result['prompts'] = compiled_prompts
+    # prompts_delta は残しても良いが、Pydanticが未知キーを許容するなら問題なし
+    
+    return result
+
+
+def _compile_delta_items(
+    delta_items: List[dict],
+    order: List[str],
+    base_slots: Dict[str, Any]
+) -> List[Union[List[str], dict]]:
+    """
+    差分アイテムのリストをコンパイルしてprompts形式に変換。
+    
+    Args:
+        delta_items: prompts_delta のリスト
+        order: 出力順序
+        base_slots: 初期テンプレートのslots
+        
+    Returns:
+        List[Union[List[str], dict]]: 既存prompts形式
+    """
+    compiled = []
+    
+    # 各IDごとの解決済みstateを保持
+    resolved_states: Dict[str, Dict[str, Any]] = {}
+    resolved_states['base'] = copy.deepcopy(base_slots)
+    
+    # 直前のstate（先頭はbaseと同じ）
+    prev_state: Dict[str, Any] = copy.deepcopy(base_slots)
+    
+    for idx, item in enumerate(delta_items):
+        # 予約キーを抽出
+        item_id = item.get('_id', str(idx))
+        from_ref = item.get('_from')
+        unset_keys = item.get('_unset', [])
+        add_dict = item.get('_add', {})
+        runs = item.get('_runs')
+        name = item.get('_name')
+        
+        # ベースstateを決定
+        if from_ref is not None:
+            if from_ref == 'base':
+                current_state = copy.deepcopy(base_slots)
+            elif from_ref in resolved_states:
+                current_state = copy.deepcopy(resolved_states[from_ref])
+            else:
+                raise ValueError(f"prompts_delta[{idx}]: _from で参照した ID '{from_ref}' は存在しません。")
+        else:
+            # 直前stateを継承
+            current_state = copy.deepcopy(prev_state)
+        
+        # set: 予約キー以外のキーを上書き
+        for key, value in item.items():
+            if not key.startswith('_'):
+                current_state[key] = value
+        
+        # unset: 指定slotを除外（Noneに）
+        for key in unset_keys:
+            current_state[key] = None
+        
+        # add: 配列slotに追加
+        for key, add_value in add_dict.items():
+            existing = current_state.get(key)
+            if existing is None:
+                existing = []
+            elif isinstance(existing, str):
+                existing = [existing]
+            elif isinstance(existing, list):
+                existing = list(existing)  # コピー
+            else:
+                existing = []
+            
+            # add_value を追加
+            if isinstance(add_value, list):
+                existing.extend(add_value)
+            else:
+                existing.append(add_value)
+            
+            current_state[key] = existing
+        
+        # stateを保存
+        resolved_states[str(item_id)] = copy.deepcopy(current_state)
+        prev_state = copy.deepcopy(current_state)
+        
+        # orderに従ってフラット化
+        flat_tags = _flatten_state_to_tags(current_state, order)
+        
+        # 出力形式を決定
+        if runs is not None or name is not None:
+            # dict形式（template + runs/name）
+            prompt_item = {'template': ', '.join(flat_tags)}
+            if runs is not None:
+                prompt_item['runs'] = runs
+            if name is not None:
+                prompt_item['name'] = name
+            compiled.append(prompt_item)
+        else:
+            # List[str]形式
+            compiled.append(flat_tags)
+    
+    return compiled
+
+
+def _flatten_state_to_tags(state: Dict[str, Any], order: List[str]) -> List[str]:
+    """
+    stateをorderに従ってフラットなタグリストに変換。
+    
+    Args:
+        state: 現在のslot状態
+        order: 出力順序
+        
+    Returns:
+        List[str]: フラット化されたタグリスト
+    """
+    tags = []
+    
+    for slot_name in order:
+        value = state.get(slot_name)
+        
+        if value is None:
+            # スキップ
+            continue
+        elif isinstance(value, str):
+            if value:  # 空文字列はスキップ
+                tags.append(value)
+        elif isinstance(value, list):
+            for v in value:
+                if v and isinstance(v, str):
+                    tags.append(v)
+        # それ以外の型は無視
+    
+    return tags
 
 class Config:
     def __init__(self, job_config_path: str, connection_config_path: str):
@@ -21,6 +216,9 @@ class Config:
         # 設定ファイルを読み込み
         job_raw_data = self._load_yaml(self.job_config_path)
         connection_raw_data = self._load_yaml(self.connection_config_path)
+        
+        # prompts_delta をコンパイル（Pydantic検証前に実行）
+        job_raw_data = compile_prompts_delta(job_raw_data)
         
         # Pydanticモデルでバリデーション
         self._validate_with_pydantic(job_raw_data, connection_raw_data)

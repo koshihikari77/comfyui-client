@@ -270,7 +270,99 @@ GridSearchの場合:
 
 ---
 
-## 7. エスケープ
+## 7. prompts_delta（差分ベースプロンプト記述）※Sequenceのみ
+
+長いプロンプトを差分で記述できる拡張記法です。シーンごとの変更点だけを書くことで、可読性と保守性を向上させます。
+
+### 7.1 基本構造
+
+```yaml
+prompt_template:
+  order: [quality, subject, action, location, extra]  # 出力順
+  slots:
+    quality: "masterpiece, best quality"
+    subject: "1girl"
+    action: null       # null = 未設定
+    location: null
+    extra: []          # 配列も可
+
+prompts_delta:
+  - { location: "bedroom" }
+  - { action: "standing" }
+  - { location: "kitchen", action: "cooking" }
+```
+
+**動作**:
+- 各行は直前の状態を継承し、指定したslotだけ上書き
+- `order` の順にフラット化して `prompts` を生成
+
+**出力される prompts**:
+```
+1. "masterpiece, best quality, 1girl, bedroom"
+2. "masterpiece, best quality, 1girl, standing, bedroom"
+3. "masterpiece, best quality, 1girl, cooking, kitchen"
+```
+
+### 7.2 予約キー
+
+通常のslot指定に加え、以下の予約キー（`_` 始まり）が使えます：
+
+| キー | 説明 | 例 |
+|------|------|-----|
+| `_id` | このシーンのID（参照用） | `_id: scene_a` |
+| `_from` | 継承元（`base` or ID） | `_from: base` |
+| `_unset` | slotを出力から除外 | `_unset: [action]` |
+| `_add` | 配列slotに追加 | `_add: {extra: "tag"}` |
+| `_runs` | このpromptのruns指定 | `_runs: 3` |
+| `_name` | prompt名 | `_name: "scene1"` |
+
+### 7.3 継承と参照
+
+```yaml
+prompts_delta:
+  - { _id: "intro", action: "standing", location: "park" }
+  - { action: "walking" }                     # 直前（intro）を継承
+  - { _from: "intro", location: "beach" }     # introを参照してlocationだけ変更
+  - { _from: "base", action: "sleeping" }     # テンプレートにリセット
+```
+
+### 7.4 配列slotへの追加
+
+```yaml
+prompt_template:
+  order: [subject, details]
+  slots:
+    subject: "1girl"
+    details: []
+
+prompts_delta:
+  - { _add: { details: "blue eyes" } }
+  - { _add: { details: ["blonde hair", "smile"] } }  # 累積される
+```
+
+**出力**:
+```
+1. "1girl, blue eyes"
+2. "1girl, blue eyes, blonde hair, smile"
+```
+
+### 7.5 slotの除外
+
+```yaml
+prompts_delta:
+  - { action: "running" }
+  - { _unset: [action] }  # actionを出力から除外
+```
+
+### 7.6 制約
+
+- `prompts` と `prompts_delta` は **同時に指定できません**（エラーになります）
+- `prompts_delta` を使う場合は `prompt_template` が必須です
+- `_from` で存在しないIDを参照するとエラーになります
+
+---
+
+## 8. エスケープ
 
 テンプレート中で構文文字をそのまま使いたい場合:
 - `\<` → `<`
@@ -279,7 +371,7 @@ GridSearchの場合:
 
 ---
 
-## 8. 注意（現行実装と設計書の差）
+## 9. 注意（現行実装と設計書の差）
 
 このガイドは「書ける」ことに寄せていますが、現行コードでは次が未配線/制約になっています。
 

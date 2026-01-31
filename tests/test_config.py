@@ -537,3 +537,345 @@ class TestConfig:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+
+
+class TestPromptsDelta:
+    """prompts_delta コンパイラのテストケース"""
+    
+    def test_basic_prompts_delta(self, temp_config_dir, sample_connection_config):
+        """基本的なprompts_delta（差分のみ）のテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_test',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'action', 'location'],
+                'slots': {
+                    'quality': 'masterpiece, best quality',
+                    'subject': '1girl',
+                    'action': None,
+                    'location': None
+                }
+            },
+            'prompts_delta': [
+                {'location': 'bedroom'},
+                {'action': 'standing'},
+                {'location': 'kitchen', 'action': 'cooking'}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_basic.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        # prompts が正しくコンパイルされていることを確認
+        assert len(config.prompts) == 3
+        
+        # 1つ目: quality, subject, location（actionはNone）
+        assert config.prompts[0].template == "masterpiece, best quality, 1girl, bedroom"
+        
+        # 2つ目: 前からlocationを継承、actionを追加
+        assert config.prompts[1].template == "masterpiece, best quality, 1girl, standing, bedroom"
+        
+        # 3つ目: locationとactionを上書き
+        assert config.prompts[2].template == "masterpiece, best quality, 1girl, cooking, kitchen"
+    
+    def test_prompts_delta_with_from_base(self, temp_config_dir, sample_connection_config):
+        """_from: base でテンプレートにリセットするテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_from_base',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'action'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'action': None
+                }
+            },
+            'prompts_delta': [
+                {'action': 'running'},
+                {'action': 'jumping'},
+                {'_from': 'base', 'action': 'sleeping'}  # baseにリセット
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_from_base.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "masterpiece, 1girl, running"
+        assert config.prompts[1].template == "masterpiece, 1girl, jumping"
+        # 3つ目はbaseからリセットされて、新たにactionだけ追加
+        assert config.prompts[2].template == "masterpiece, 1girl, sleeping"
+    
+    def test_prompts_delta_with_from_id(self, temp_config_dir, sample_connection_config):
+        """_from: ID で特定のシーンを参照するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_from_id',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject', 'action', 'location'],
+                'slots': {
+                    'subject': '1girl',
+                    'action': None,
+                    'location': None
+                }
+            },
+            'prompts_delta': [
+                {'_id': 'scene_a', 'action': 'standing', 'location': 'park'},
+                {'action': 'walking'},  # scene_aから継承
+                {'_from': 'scene_a', 'location': 'beach'}  # scene_aを参照
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_from_id.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "1girl, standing, park"
+        assert config.prompts[1].template == "1girl, walking, park"
+        # scene_aから参照（standing, park）してlocationだけ上書き
+        assert config.prompts[2].template == "1girl, standing, beach"
+    
+    def test_prompts_delta_with_unset(self, temp_config_dir, sample_connection_config):
+        """_unset でslotを除外するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_unset',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'action'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'action': 'standing'
+                }
+            },
+            'prompts_delta': [
+                {},  # そのまま
+                {'_unset': ['action']}  # actionを除外
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_unset.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 2
+        assert config.prompts[0].template == "masterpiece, 1girl, standing"
+        assert config.prompts[1].template == "masterpiece, 1girl"
+    
+    def test_prompts_delta_with_add(self, temp_config_dir, sample_connection_config):
+        """_add で配列slotに追加するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_add',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'extra'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'extra': []
+                }
+            },
+            'prompts_delta': [
+                {'_add': {'extra': 'blue eyes'}},
+                {'_add': {'extra': ['blonde hair', 'smile']}}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_add.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 2
+        assert config.prompts[0].template == "masterpiece, 1girl, blue eyes"
+        # 2つ目は前から継承して追加
+        assert config.prompts[1].template == "masterpiece, 1girl, blue eyes, blonde hair, smile"
+    
+    def test_prompts_delta_with_tag_array_slot(self, temp_config_dir, sample_connection_config):
+        """slotにタグ配列を直接指定するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_tag_array',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'details'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'details': None
+                }
+            },
+            'prompts_delta': [
+                {'details': ['blue eyes', 'blonde hair', 'smile']}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_tag_array.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 1
+        assert config.prompts[0].template == "masterpiece, 1girl, blue eyes, blonde hair, smile"
+    
+    def test_prompts_delta_with_runs(self, temp_config_dir, sample_connection_config):
+        """_runs でpromptごとのruns指定テスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_runs',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject'],
+                'slots': {
+                    'subject': '1girl'
+                }
+            },
+            'prompts_delta': [
+                {},
+                {'_runs': 3}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_runs.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        
+        assert len(config.prompts) == 2
+        assert config.prompts[0].runs is None  # default_runsを使用
+        assert config.prompts[1].runs == 3
+    
+    def test_prompts_delta_error_both_prompts_and_delta(self, temp_config_dir, sample_connection_config):
+        """prompts と prompts_delta の両方があるとエラーになるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_error',
+            'job_type': 'sequence',
+            'prompts': [
+                {'template': 'test', 'runs': 1}
+            ],
+            'prompt_template': {
+                'order': ['subject'],
+                'slots': {'subject': '1girl'}
+            },
+            'prompts_delta': [
+                {}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_error.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="'prompts' と 'prompts_delta' は同時に指定できません"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+    
+    def test_prompts_delta_error_no_template(self, temp_config_dir, sample_connection_config):
+        """prompt_template なしで prompts_delta があるとエラーになるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_no_template',
+            'job_type': 'sequence',
+            'prompts_delta': [
+                {'action': 'running'}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_no_template.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="'prompts_delta' を使用する場合は 'prompt_template' が必須です"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+    
+    def test_prompts_delta_error_invalid_from_id(self, temp_config_dir, sample_connection_config):
+        """_from で存在しないIDを指定するとエラーになるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        
+        config_data = {
+            'job_name': 'prompts_delta_invalid_from',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject'],
+                'slots': {'subject': '1girl'}
+            },
+            'prompts_delta': [
+                {'_from': 'nonexistent_id'}
+            ]
+        }
+        
+        config_path = jobs_dir / 'prompts_delta_invalid_from.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        
+        with pytest.raises(ValueError, match="_from で参照した ID 'nonexistent_id' は存在しません"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
