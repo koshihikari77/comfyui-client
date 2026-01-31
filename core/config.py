@@ -400,12 +400,12 @@ class Config:
         
         # 相対パスの場合の解決
         # 1. 標準的なディレクトリ構造の場合を優先
-        # job_config_pathが configs/jobs/xxx.yaml の場合、
-        # configs/ ディレクトリを基準にする
-        if self.job_config_path.parent.name == 'jobs':
-            configs_dir = self.job_config_path.parent.parent
-            standard_path = configs_dir / workflow_filename
-            return standard_path
+        # job_config_path が configs/jobs/**/xxx.yaml の場合、
+        # configs/ ディレクトリ（jobs/ の親）を基準にする
+        for parent in self.job_config_path.parents:
+            if parent.name == 'jobs':
+                configs_dir = parent.parent
+                return configs_dir / workflow_filename
             
         # 2. job_config_pathと同じディレクトリにある場合（フラットな構造のテスト用）
         same_dir_path = self.job_config_path.parent / workflow_filename

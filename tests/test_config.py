@@ -170,6 +170,39 @@ class TestConfig:
         # /tmp/xxx/workflows/test_workflow.json になるはず  
         expected_path = sample_job_config.parent.parent / 'workflows' / 'test_workflow.json'
         assert config.base_workflow_path == expected_path 
+
+    def test_base_workflow_path_property_nested_jobs_dir(self, temp_config_dir, sample_connection_config):
+        """base_workflow_path: configs/jobs/** 配下でも configs/ 基準で解決されること"""
+        jobs_dir = temp_config_dir / 'jobs' / 'pixiv' / 'pink_salon'
+        jobs_dir.mkdir(parents=True)
+        workflows_dir = temp_config_dir / 'workflows'
+        workflows_dir.mkdir()
+
+        # テスト用ワークフロー作成
+        import json
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_workflow.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+
+        # ネストしたjob config
+        config_data = {
+            'job_name': 'nested_job',
+            'job_type': 'grid_search',
+            'base_workflow': 'workflows/test_workflow.json',
+            'variables': [
+                {'node_id': 1, 'input_name': 'test_param', 'values': ['value1']}
+            ]
+        }
+        config_path = jobs_dir / 'nested_job.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert config.base_workflow_path == workflow_path
     
     def test_sequence_job_with_new_prompt_format(self, temp_config_dir, sample_connection_config):
         """sequenceジョブの新プロンプト形式（List[str]）のテスト"""
