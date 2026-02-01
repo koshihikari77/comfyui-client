@@ -112,7 +112,29 @@ prompts:
     runs: 3
 ```
 
-### 4.2 新しいプロンプト形式（リスト記法）
+### 4.2 default_runs（ジョブ全体のデフォルト実行回数）
+
+ジョブのトップレベルで **`default_runs`** を指定すると、各プロンプトで `runs`（または scene_delta の `_runs`）を書いていない場合に、その回数が使われます。デフォルトは `1` です。
+
+```yaml
+job_type: "sequence"
+default_runs: 2   # 各 prompt で runs を書かなければ 2 回ずつ実行
+
+prompts:
+  - template: "1girl, smile"           # 2回実行（default_runs）
+  - template: "1boy, serious", runs: 5 # 5回実行（明示指定が優先）
+```
+
+scene_delta の場合も同様です。`_runs` を指定したシーンだけその回数になり、それ以外は `default_runs` が使われます。
+
+```yaml
+default_runs: 2
+scene_delta:
+  - { subject: "1girl" }              # 2回実行
+  - { subject: "1boy", _runs: 3 }     # 3回実行
+```
+
+### 4.3 新しいプロンプト形式（リスト記法）
 
 次のように `List[str]` でも書けます（内部で `", "` 結合して template 化）。
 
@@ -122,7 +144,7 @@ prompts:
   - ["%base_quality%", "1boy", "serious"]
 ```
 
-### 4.3 constants（%...%）
+### 4.4 constants（%...%）
 
 ```yaml
 constants:
@@ -150,7 +172,7 @@ prompts:
   - OK: `%base_quality%`
   - NG: `%base-quality%` / `%base/quality%`
 
-### 4.4 iterators（$[...]）
+### 4.5 iterators（$[...]）
 
 手動リスト:
 
@@ -174,7 +196,7 @@ iterators:
 #### 制約（現行実装）
 - Iterator名は正規表現 `([a-zA-Z_][a-zA-Z0-9_]*)` に一致する必要があります。
 
-### 4.5 fixed/random/parameter_combinations（パラメータ適用）
+### 4.6 fixed/random/parameter_combinations（パラメータ適用）
 
 固定（最低優先度）:
 
@@ -324,7 +346,9 @@ scene_delta:
 |------|------|-----|
 | `_id` | このシーンのID（参照用） | `_id: scene_a` |
 | `_from` | 継承元（`base` or ID） | `_from: base` |
-| `_unset` | slotを出力から除外 | `_unset: [action]` |
+| `_unset` | slotの値を None にして出力から除外（以後継承） | `_unset: [action]` |
+| `_invisible` | slotの値は維持し、出力からだけ除外（以後継承） | `_invisible: [lighting]` |
+| `_visible` | slotを再び出力対象に戻す（以後継承） | `_visible: [lighting]` |
 | `_add` | slotにタグを追加（str はカンマ区切りで分割して追加） | `_add: {extra: "tag"}` |
 | `_del` | slotからタグを完全一致で削除（存在しないタグは無視） | `_del: {extra: "tag"}` |
 | `_runs` | このpromptのruns指定 | `_runs: 3` |
@@ -361,12 +385,20 @@ scene_delta:
 2. "1girl, blue eyes, blonde hair, smile"
 ```
 
-### 7.5 slotの除外
+### 7.5 slotの除外・非表示
+
+- **`_unset`**: slotの**値**を None にし、出力からも除外する。以後のシーンでもその slot は「無い」状態が継承される。
+- **`_invisible`** / **`_visible`**: slotの**値は維持**したまま、出力に含めるかどうかだけを切り替える。  
+  - `_invisible: [slot名]` で出力から隠し、`_visible: [slot名]` で再表示。  
+  - 非表示の間に set / _add / _del で値を変えておくと、`_visible` で再表示したときに更新後の値が出力される。  
+  - `_from` で参照するときは、**値state と 可視state の両方**が引き継がれる。
 
 ```yaml
 scene_delta:
   - { action: "running" }
-  - { _unset: [action] }  # actionを出力から除外
+  - { _unset: [action] }  # action の値も出力も消す
+  - { _invisible: [lighting] }  # lighting の値は維持、出力からだけ隠す
+  - { _visible: [lighting] }   # 再表示（その時点の値が出力される）
 ```
 
 ### 7.6 よくある運用メモ（現行実装）

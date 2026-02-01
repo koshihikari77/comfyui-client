@@ -731,6 +731,97 @@ class TestPromptsDelta:
         assert config.prompts[0].template == "masterpiece, 1girl, standing"
         assert config.prompts[1].template == "masterpiece, 1girl"
     
+    def test_scene_delta_invisible_visible_restore(self, temp_config_dir, sample_connection_config):
+        """_invisible で出力から消え、_visible で同じ値が復活するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_invisible_visible',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'extra'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'extra': 'blue eyes',
+                },
+            },
+            'scene_delta': [
+                {},  # masterpiece, 1girl, blue eyes
+                {'_invisible': ['extra']},  # 値は維持、出力からだけ除外 → masterpiece, 1girl
+                {'_visible': ['extra']},  # 再表示 → masterpiece, 1girl, blue eyes
+            ],
+        }
+        config_path = jobs_dir / 'scene_delta_invisible_visible.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config),
+        )
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "masterpiece, 1girl, blue eyes"
+        assert config.prompts[1].template == "masterpiece, 1girl"
+        assert config.prompts[2].template == "masterpiece, 1girl, blue eyes"
+    
+    def test_scene_delta_invisible_then_set_visible_reflects(self, temp_config_dir, sample_connection_config):
+        """invisible 中に set した値が visible 後に反映されるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_invisible_set_visible',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['a', 'b'],
+                'slots': {'a': 'A', 'b': 'B'},
+            },
+            'scene_delta': [
+                {},
+                {'_invisible': ['b'], 'b': 'B2'},  # 値は B2 に更新、出力には出ない
+                {'_visible': ['b']},  # B2 が出力に現れる
+            ],
+        }
+        config_path = jobs_dir / 'scene_delta_invisible_set_visible.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config),
+        )
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "A, B"
+        assert config.prompts[1].template == "A"
+        assert config.prompts[2].template == "A, B2"
+    
+    def test_scene_delta_from_copies_visibility(self, temp_config_dir, sample_connection_config):
+        """_from 参照で可視状態も含めて復元されるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_from_visibility',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'extra'],
+                'slots': {'quality': 'masterpiece', 'subject': '1girl', 'extra': 'smile'},
+            },
+            'scene_delta': [
+                {'_id': 'scene_hidden', '_invisible': ['extra']},  # masterpiece, 1girl
+                {'extra': 'grin'},  # 継承で extra はまだ invisible → masterpiece, 1girl
+                {'_from': 'scene_hidden', '_visible': ['extra']},  # scene_hidden の値＋可視復元 → masterpiece, 1girl, smile
+            ],
+        }
+        config_path = jobs_dir / 'scene_delta_from_visibility.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config),
+        )
+        assert len(config.prompts) == 3
+        assert config.prompts[0].template == "masterpiece, 1girl"
+        assert config.prompts[1].template == "masterpiece, 1girl"
+        assert config.prompts[2].template == "masterpiece, 1girl, smile"
+    
     def test_prompts_delta_with_add(self, temp_config_dir, sample_connection_config):
         """_add で配列slotに追加するテスト"""
         jobs_dir = temp_config_dir / 'jobs'

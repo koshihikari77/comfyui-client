@@ -72,8 +72,10 @@ def compile_scene_delta(job_raw_data: dict) -> dict:
     - 基本形: { slotA: value, slotB: [tag1, tag2] } は set と同義
     - 予約キー:
       - _id: 任意ID（未指定なら自動連番）
-      - _from: 参照元（"base" = 初期テンプレ, ID = そのIDのstate, 省略 = 直前state）
-      - _unset: List[str]（slotを出力から除外）
+      - _from: 参照元（"base" = 初期テンプレ, ID = そのIDのstate, 省略 = 直前state。値stateと可視stateをセットで引き継ぐ）
+      - _unset: List[str]（slotの値をNoneにして出力から除外）
+      - _invisible: List[str]（slotの値は維持し、出力からだけ除外。以後継承）
+      - _visible: List[str]（slotを再び出力対象に戻す。以後継承）
       - _add: Dict[str, str|List[str]]（slotにタグを追加）
       - _del: Dict[str, str|List[str]]（slotからタグを完全一致で削除）
       - _params: List[{node_id, input_name, value}]（ワークフローパラメータ。set→以後継承）
@@ -154,15 +156,21 @@ def _compile_delta_items(
     for k, v in base_slots.items():
         base_normalized[k] = _normalize_slot_value(v, constants=constants)
     
+    base_visibility: Dict[str, bool] = {slot: True for slot in order}
     resolved_states: Dict[str, Dict[str, Optional[List[str]]]] = {}
     resolved_states['base'] = copy.deepcopy(base_normalized)
+    resolved_visibilities: Dict[str, Dict[str, bool]] = {}
+    resolved_visibilities['base'] = copy.deepcopy(base_visibility)
     prev_state: Dict[str, Optional[List[str]]] = copy.deepcopy(base_normalized)
+    prev_visibility: Dict[str, bool] = copy.deepcopy(base_visibility)
     param_state: Dict[str, dict] = {}
     
     for idx, item in enumerate(delta_items):
         item_id = item.get('_id', str(idx))
         from_ref = item.get('_from')
         unset_keys = item.get('_unset', [])
+        invisible_keys = item.get('_invisible', [])
+        visible_keys = item.get('_visible', [])
         add_dict = item.get('_add', {})
         del_dict = item.get('_del', {})
         params_list = item.get('_params', [])
@@ -172,12 +180,15 @@ def _compile_delta_items(
         if from_ref is not None:
             if from_ref == 'base':
                 current_state = copy.deepcopy(base_normalized)
+                current_visibility = copy.deepcopy(base_visibility)
             elif from_ref in resolved_states:
                 current_state = copy.deepcopy(resolved_states[from_ref])
+                current_visibility = copy.deepcopy(resolved_visibilities.get(from_ref, base_visibility))
             else:
                 raise ValueError(f"scene_delta[{idx}]: _from で参照した ID '{from_ref}' は存在しません。")
         else:
             current_state = copy.deepcopy(prev_state)
+            current_visibility = copy.deepcopy(prev_visibility)
         
         # set: 予約キー以外のキーを上書き（正規化して List[str]|None）
         for key, value in item.items():
@@ -210,6 +221,12 @@ def _compile_delta_items(
             remove_set = set(to_remove)
             current_state[key] = [t for t in existing if t not in remove_set]
         
+        # _invisible / _visible: 出力の可否のみ変更（値は維持）
+        for key in invisible_keys:
+            current_visibility[key] = False
+        for key in visible_keys:
+            current_visibility[key] = True
+        
         # _params: ワークフローパラメータを更新（set→以後継承）
         for p in params_list:
             if not isinstance(p, dict):
@@ -223,9 +240,11 @@ def _compile_delta_items(
             param_state[key] = {'node_id': nid, 'input_name': iname, 'value': val}
         
         resolved_states[str(item_id)] = copy.deepcopy(current_state)
+        resolved_visibilities[str(item_id)] = copy.deepcopy(current_visibility)
         prev_state = copy.deepcopy(current_state)
+        prev_visibility = copy.deepcopy(current_visibility)
         
-        flat_tags = _flatten_state_to_tags(current_state, order)
+        flat_tags = _flatten_state_to_tags(current_state, order, current_visibility)
         prompt_item = {'template': ', '.join(flat_tags)}
         if runs is not None:
             prompt_item['runs'] = runs
@@ -238,13 +257,21 @@ def _compile_delta_items(
     return compiled
 
 
-def _flatten_state_to_tags(state: Dict[str, Optional[List[str]]], order: List[str]) -> List[str]:
+def _flatten_state_to_tags(
+    state: Dict[str, Optional[List[str]]],
+    order: List[str],
+    slot_visibility: Optional[Dict[str, bool]] = None,
+) -> List[str]:
     """
     stateをorderに従ってフラットなタグリストに変換。
     stateの値は常に List[str]|None に正規化されている前提。
+    slot_visibility が与えられた場合、False の slot は出力に含めない（_invisible 対応）。
     """
     tags = []
+    vis = slot_visibility if slot_visibility is not None else {}
     for slot_name in order:
+        if not vis.get(slot_name, True):
+            continue
         value = state.get(slot_name)
         if value is None:
             continue
