@@ -124,6 +124,7 @@
 | v2.6 | - | プロンプトリスト記法サポート |
 | v2.7 | - | Iterator機能追加 |
 | v2.8 | - | Constant機能追加 |
+| v2.9 | - | scene_delta（旧prompts_delta、差分プロンプト）、_params（ワークフローパラメータ set→継承）、constantsのList対応、--dump-prompts、ネストjobsのbase_workflow解決改善、ComfyUI 400エラー本文ログ |
 
 ### 1.4 技術スタック
 
@@ -1638,6 +1639,10 @@ job_name: "my_job_name"
 # ベースワークフロー（GridSearchでは必須）
 base_workflow: "./workflows/base.json"
 
+# パス解決（現行実装の例）
+# - job config が configs/jobs/** 配下にある場合は configs/ を基準に相対パス解決
+#   - base_workflow: "workflows/base.json" → configs/workflows/base.json
+
 # プロンプトディレクトリ
 prompts_dir: "configs/prompts"  # デフォルト
 
@@ -1702,6 +1707,8 @@ job_type: "sequence"
 # Constant定義
 constants:
   base_quality: "masterpiece, best quality"
+  # List[str] も可（", " 結合で置換）
+  # tags: ["masterpiece", "best quality", "1girl"]
 
 # Iterator定義
 iterators:
@@ -1755,7 +1762,28 @@ prompts:
   # 従来形式
   - template: "%base_quality%, landscape"
     runs: 3
+
+# scene_delta（差分ベースのプロンプト記述）
+# - prompt_template の slots/order を元に、scene_delta を prompts にコンパイルして実行
+# - 旧キー prompts_delta は廃止（指定するとエラー）
+prompt_template:
+  order: [quality, subject, extra]
+  slots:
+    quality: "%base_quality%"
+    subject: "1girl"
+    extra: []
+
+scene_delta:
+  - { _id: "scene0", _add: { extra: ["blue eyes"] } }
+  - { _add: { extra: ["smile"] } }                    # 直前を継承（累積）
+  - { _del: { extra: ["blue eyes"] } }                # 完全一致で削除
+  - { _unset: ["extra"] }                             # slotごと除外
 ```
+
+**scene_delta補足（現行実装）**
+- slotの値は内部で **`List[str] | None` に正規化**される（strはカンマ区切り分割）
+- `%constant%` は **scene_deltaのコンパイル時点でも展開**されるため、`%...%` を含むslotでも `_del` が展開後のタグに対して効く
+- **`_params`**: ワークフローパラメータをシーン単位で指定（set→以後継承）。`_params: [{node_id, input_name, value}, ...]`。実行時は scene_delta params が fixed/random/parameter_combinations より優先され、prompt_target の適用は最後（プロンプトテキストが勝つ）
 
 #### 4.1.5 バリデーションモデル（Pydantic）
 
@@ -1771,9 +1799,17 @@ class VariableModel(BaseModel):
     input_name: str
     values: List[Any]
 
+class SceneParamItemModel(BaseModel):
+    """scene_delta _params の1項目（set→以後継承）。value は任意型。"""
+    node_id: Union[int, str]
+    input_name: str
+    value: Any
+
 class PromptItemModel(BaseModel):
     template: str
-    runs: Optional[int] = 1
+    runs: Optional[int] = None  # Noneの場合はdefault_runsを使用
+    name: Optional[str] = None
+    params: Optional[List[SceneParamItemModel]] = None  # scene_delta由来（set→以後継承）
 
 class JobConfigModel(BaseModel):
     job_type: Literal["grid_search", "sequence"]
@@ -1792,9 +1828,9 @@ class JobConfigModel(BaseModel):
     placeholders: Optional[Dict[str, List[str]]] = {}
     
     # Sequence固有
-    constants: Optional[Dict[str, str]] = {}
+    constants: Optional[Dict[str, Union[str, List[str]]]] = {}
     iterators: Optional[Dict[str, Union[List[str], IteratorItemModel]]] = {}
-    prompts: Optional[List[Union[PromptItemModel, List[str]]]] = []
+    prompts: Optional[List[Union[PromptItemModel, List[str], Dict[str, Any]]]] = []
     default_runs: int = 1
     
     # 共通
@@ -2027,6 +2063,11 @@ except LarkError as e:
     )
 ```
 
+### 5.4 ComfyUI APIエラー（/prompt）
+
+ComfyUIへの `POST /prompt` が **HTTP 400** を返す場合、本文に「どのノード/入力が不正か」のJSONが含まれることがあります。  
+現行実装では `core/api_client.py` が **HTTPError時にエラー本文をログ出力**し、原因特定ができるようになっています。
+
 ---
 
 ## 6. 拡張機能
@@ -2081,6 +2122,15 @@ executor = GridSearchExecutor(config, container)
 - パース時間: 0.001秒（キャッシュ後）
 - 複雑テンプレート: 0.005秒未満
 - メモリ使用: 1000回解析で安定
+
+### 6.4 プロンプトのダンプ（--dump-prompts）
+
+**目的**: job設定をロードして `scene_delta` / `runs` / `%constants%` / `$[iterators]` を展開し、最終的な解決済みプロンプトをファイルに出力する（実行はしない）。
+
+**CLI**:
+```bash
+python main.py --job-config "configs/jobs/xxx.yaml" --dump-prompts "out.txt"
+```
 
 ---
 

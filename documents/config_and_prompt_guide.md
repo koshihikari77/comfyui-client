@@ -21,10 +21,10 @@ server_address: "127.0.0.1:8188"
 ```
 
 #### 注意（現行実装）
-- `core/api_client.py` は内部で `http://{server_address}/...` を組み立てるため、**`server_address` は `host:port` 形式推奨**です。
-  - 例: `127.0.0.1:8188`
-  - 例: `localhost:8188`
-- `http://localhost:8188` のようにスキーム付きにすると、現行実装では `http://http://...` になり得ます（要注意）。
+- `server_address` は **`host:port`** と **`http(s)://host:port`** の両方に対応しています（`core/api_client.py` で正規化）。
+  - 例: `127.0.0.1:8188`（推奨）
+  - 例: `http://localhost:8188`
+  - 例: `https://example.com:8188`
 
 ---
 
@@ -41,7 +41,7 @@ base_workflow: "workflows/api_base.json"  # grid_searchでは必須（sequence�
 ```
 
 #### base_workflow のパス解決ルール（現行実装）
-- `configs/jobs/xxx.yaml` の場合、`configs/` を基準に相対パス解決します。
+- `configs/jobs/**/xxx.yaml` の場合、`configs/` を基準に相対パス解決します。
   - `base_workflow: "workflows/api_base.json"` → `configs/workflows/api_base.json`
 
 ---
@@ -282,9 +282,10 @@ GridSearchの場合:
 
 ---
 
-## 7. prompts_delta（差分ベースプロンプト記述）※Sequenceのみ
+## 7. scene_delta（差分ベースプロンプト記述）※Sequenceのみ
 
-長いプロンプトを差分で記述できる拡張記法です。シーンごとの変更点だけを書くことで、可読性と保守性を向上させます。
+長いプロンプトを差分で記述できる拡張記法です。シーンごとの変更点だけを書くことで、可読性と保守性を向上させます。  
+**注意**: 旧キー `prompts_delta` は廃止されています。`scene_delta` を使用してください。
 
 ### 7.1 基本構造
 
@@ -298,7 +299,7 @@ prompt_template:
     location: null
     extra: []          # 配列も可
 
-prompts_delta:
+scene_delta:
   - { location: "bedroom" }
   - { action: "standing" }
   - { location: "kitchen", action: "cooking" }
@@ -328,11 +329,12 @@ prompts_delta:
 | `_del` | slotからタグを完全一致で削除（存在しないタグは無視） | `_del: {extra: "tag"}` |
 | `_runs` | このpromptのruns指定 | `_runs: 3` |
 | `_name` | prompt名 | `_name: "scene1"` |
+| `_params` | ワークフローパラメータ（set→以後継承） | `_params: [{node_id: 10, input_name: "width", value: 768}]` |
 
 ### 7.3 継承と参照
 
 ```yaml
-prompts_delta:
+scene_delta:
   - { _id: "intro", action: "standing", location: "park" }
   - { action: "walking" }                     # 直前（intro）を継承
   - { _from: "intro", location: "beach" }     # introを参照してlocationだけ変更
@@ -348,7 +350,7 @@ prompt_template:
     subject: "1girl"
     details: []
 
-prompts_delta:
+scene_delta:
   - { _add: { details: "blue eyes" } }
   - { _add: { details: ["blonde hair", "smile"] } }  # 累積される
 ```
@@ -362,16 +364,40 @@ prompts_delta:
 ### 7.5 slotの除外
 
 ```yaml
-prompts_delta:
+scene_delta:
   - { action: "running" }
   - { _unset: [action] }  # actionを出力から除外
 ```
 
-### 7.6 制約
+### 7.6 よくある運用メモ（現行実装）
 
-- `prompts` と `prompts_delta` は **同時に指定できません**（エラーになります）
-- `prompts_delta` を使う場合は `prompt_template` が必須です
+- **`_add` は累積**します  
+  各シーンは「直前stateを継承→差分適用」なので、`_add` で入れたタグは **消さない限り残り続けます**。戻したい場合は次のいずれかを使います。
+  - **setで上書き**: `clothing_lower: "%char_clothing_lower%"`
+  - **`_del` で削除**（完全一致）
+  - **`_unset` でslotごと消す**
+  - **`_from: base`** でテンプレート状態にリセット
+
+- **`%constant%` は scene_delta コンパイル時にも展開されます**  
+  `prompt_template.slots` や `scene_delta` の set / `_add` / `_del` に `%name%` を書けます。  
+  これにより、`%...%` を含むslotでも **展開後のタグに対して `_del` が効く**ようになっています。
+
+- **`order` の “区切り” を出したい場合は slot を用意します**  
+  `order` に `break` を入れるだけでは何も出ません（そのslotが未定義ならスキップされるため）。  
+  出力に `BREAK` を混ぜたい場合は、例えば `slots.break: ["BREAK"]` を用意して `order` に `break` を入れます。
+
+- **`order` に同じslot名を複数回入れると、その回数ぶん重複して出力されます**
+
+- **`_params` でワークフローパラメータをシーン単位で変更できます（set→以後継承）**  
+  `_params: [{node_id: 10, input_name: "width", value: 768}, ...]` のように指定すると、そのシーン以降でその値が継承されます。  
+  実行時のパラメータ優先度は **scene_delta params が fixed/random/parameter_combinations より優先**され、**prompt_target（プロンプトテキスト）は最後に適用**されます。
+
+### 7.7 制約
+
+- `prompts` と `scene_delta` は **同時に指定できません**（エラーになります）
+- `scene_delta` を使う場合は `prompt_template` が必須です
 - `_from` で存在しないIDを参照するとエラーになります
+- **`prompts_delta` は廃止されています**。`scene_delta` を使用してください（指定するとエラーになります）
 
 ---
 

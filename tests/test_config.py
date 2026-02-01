@@ -592,14 +592,14 @@ class TestPromptsDelta:
                     'location': None
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'location': 'bedroom'},
                 {'action': 'standing'},
                 {'location': 'kitchen', 'action': 'cooking'}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_basic.yaml'
+        config_path = jobs_dir / 'scene_delta_basic.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -636,14 +636,14 @@ class TestPromptsDelta:
                     'action': None
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'action': 'running'},
                 {'action': 'jumping'},
                 {'_from': 'base', 'action': 'sleeping'}  # baseにリセット
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_from_base.yaml'
+        config_path = jobs_dir / 'scene_delta_from_base.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -674,14 +674,14 @@ class TestPromptsDelta:
                     'location': None
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'_id': 'scene_a', 'action': 'standing', 'location': 'park'},
                 {'action': 'walking'},  # scene_aから継承
                 {'_from': 'scene_a', 'location': 'beach'}  # scene_aを参照
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_from_id.yaml'
+        config_path = jobs_dir / 'scene_delta_from_id.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -712,13 +712,13 @@ class TestPromptsDelta:
                     'action': 'standing'
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {},  # そのまま
                 {'_unset': ['action']}  # actionを除外
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_unset.yaml'
+        config_path = jobs_dir / 'scene_delta_unset.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -747,13 +747,13 @@ class TestPromptsDelta:
                     'extra': []
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'_add': {'extra': 'blue eyes'}},
                 {'_add': {'extra': ['blonde hair', 'smile']}}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_add.yaml'
+        config_path = jobs_dir / 'scene_delta_add.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -783,12 +783,12 @@ class TestPromptsDelta:
                     'details': None
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'details': ['blue eyes', 'blonde hair', 'smile']}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_tag_array.yaml'
+        config_path = jobs_dir / 'scene_delta_tag_array.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -814,13 +814,13 @@ class TestPromptsDelta:
                     'subject': '1girl'
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {},
                 {'_runs': 3}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_runs.yaml'
+        config_path = jobs_dir / 'scene_delta_runs.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -848,39 +848,39 @@ class TestPromptsDelta:
                 'order': ['subject'],
                 'slots': {'subject': '1girl'}
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_error.yaml'
+        config_path = jobs_dir / 'scene_delta_error.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
-        with pytest.raises(ValueError, match="'prompts' と 'prompts_delta' は同時に指定できません"):
+        with pytest.raises(ValueError, match="'prompts' と 'scene_delta' は同時に指定できません"):
             Config(
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
     
     def test_prompts_delta_error_no_template(self, temp_config_dir, sample_connection_config):
-        """prompt_template なしで prompts_delta があるとエラーになるテスト"""
+        """prompt_template なしで scene_delta があるとエラーになるテスト"""
         jobs_dir = temp_config_dir / 'jobs'
         jobs_dir.mkdir(exist_ok=True)
         
         config_data = {
-            'job_name': 'prompts_delta_no_template',
+            'job_name': 'scene_delta_no_template',
             'job_type': 'sequence',
-            'prompts_delta': [
+            'scene_delta': [
                 {'action': 'running'}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_no_template.yaml'
+        config_path = jobs_dir / 'scene_delta_no_template.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
-        with pytest.raises(ValueError, match="'prompts_delta' を使用する場合は 'prompt_template' が必須です"):
+        with pytest.raises(ValueError, match="'scene_delta' を使用する場合は 'prompt_template' が必須です"):
             Config(
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
@@ -898,12 +898,12 @@ class TestPromptsDelta:
                 'order': ['subject'],
                 'slots': {'subject': '1girl'}
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'_from': 'nonexistent_id'}
             ]
         }
         
-        config_path = jobs_dir / 'prompts_delta_invalid_from.yaml'
+        config_path = jobs_dir / 'scene_delta_invalid_from.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         
@@ -912,6 +912,73 @@ class TestPromptsDelta:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+
+    def test_prompts_delta_raises_use_scene_delta(self, temp_config_dir, sample_connection_config):
+        """prompts_delta が指定されているとエラーになり scene_delta の使用を促すテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'prompts_delta_deprecated',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject'],
+                'slots': {'subject': '1girl'}
+            },
+            'prompts_delta': [{}]
+        }
+        config_path = jobs_dir / 'prompts_delta_deprecated.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        with pytest.raises(ValueError, match="'scene_delta' を使用してください"):
+            Config(
+                job_config_path=str(config_path),
+                connection_config_path=str(sample_connection_config)
+            )
+
+    def test_scene_delta_params_inheritance(self, temp_config_dir, sample_connection_config):
+        """scene_delta の _params が set→以後継承され、2つ目のシーンにも含まれるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_params',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject'],
+                'slots': {'subject': '1girl'}
+            },
+            'scene_delta': [
+                {
+                    'subject': '1girl',
+                    '_params': [
+                        {'node_id': 10, 'input_name': 'width', 'value': 768},
+                        {'node_id': 10, 'input_name': 'height', 'value': 1024}
+                    ]
+                },
+                {'subject': '1boy'}  # _params なし → 1つ目で set した値が継承される
+            ]
+        }
+        config_path = jobs_dir / 'scene_delta_params.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 2
+        # 1つ目: _params を set
+        assert config.prompts[0].params is not None
+        assert len(config.prompts[0].params) == 2
+        keys0 = {(p.node_id, p.input_name) for p in config.prompts[0].params}
+        assert (10, 'width') in keys0 and (10, 'height') in keys0
+        # 2つ目: _params を省略しても 1つ目で set した値が継承されている
+        assert config.prompts[1].params is not None
+        assert len(config.prompts[1].params) == 2
+        keys1 = {(p.node_id, p.input_name) for p in config.prompts[1].params}
+        assert (10, 'width') in keys1 and (10, 'height') in keys1
+        # 値の確認
+        w0 = next(p for p in config.prompts[0].params if p.input_name == 'width')
+        w1 = next(p for p in config.prompts[1].params if p.input_name == 'width')
+        assert w0.value == 768 and w1.value == 768
 
     def test_prompts_delta_with_del(self, temp_config_dir, sample_connection_config):
         """_del でタグを完全一致削除するテスト"""
@@ -928,13 +995,13 @@ class TestPromptsDelta:
                     'extra': 'blue eyes, blonde hair, smile'
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {},
                 {'_del': {'extra': 'blonde hair'}},
                 {'_del': {'extra': ['blue eyes', 'smile']}}
             ]
         }
-        config_path = jobs_dir / 'prompts_delta_del.yaml'
+        config_path = jobs_dir / 'scene_delta_del.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         config = Config(
@@ -951,18 +1018,18 @@ class TestPromptsDelta:
         jobs_dir = temp_config_dir / 'jobs'
         jobs_dir.mkdir(exist_ok=True)
         config_data = {
-            'job_name': 'prompts_delta_str_slot',
+            'job_name': 'scene_delta_str_slot',
             'job_type': 'sequence',
             'prompt_template': {
                 'order': ['tags'],
                 'slots': {'tags': 'a, b, c'}
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'_del': {'tags': 'b'}},
                 {'_add': {'tags': 'd'}}
             ]
         }
-        config_path = jobs_dir / 'prompts_delta_str_slot.yaml'
+        config_path = jobs_dir / 'scene_delta_str_slot.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         config = Config(
@@ -989,11 +1056,11 @@ class TestPromptsDelta:
                     'tags': '%tags%'
                 }
             },
-            'prompts_delta': [
+            'scene_delta': [
                 {'_del': {'tags': 'b'}}
             ]
         }
-        config_path = jobs_dir / 'prompts_delta_del_constants.yaml'
+        config_path = jobs_dir / 'scene_delta_del_constants.yaml'
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f, default_flow_style=False)
         config = Config(

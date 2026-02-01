@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# prompts_delta コンパイラ
+# scene_delta コンパイラ
 # =============================================================================
 
 def _substitute_constants_in_text(text: str, constants: Optional[Dict[str, Any]]) -> str:
     """
-    %name% 記法を constants で置換する（prompts_delta コンパイル用）。
+    %name% 記法を constants で置換する（scene_delta コンパイル用）。
     list定数は ", ".join(list) にして展開する。
     """
     if not constants:
@@ -64,11 +64,11 @@ def _normalize_slot_value(value: Any, constants: Optional[Dict[str, Any]] = None
     return None
 
 
-def compile_prompts_delta(job_raw_data: dict) -> dict:
+def compile_scene_delta(job_raw_data: dict) -> dict:
     """
-    prompts_delta 記法を従来の prompts 形式にコンパイルする。
+    scene_delta 記法を従来の prompts 形式にコンパイルする。
     
-    prompts_delta は差分ベースでプロンプトを記述できる拡張記法:
+    scene_delta は差分ベースでプロンプトを記述できる拡張記法:
     - 基本形: { slotA: value, slotB: [tag1, tag2] } は set と同義
     - 予約キー:
       - _id: 任意ID（未指定なら自動連番）
@@ -76,6 +76,7 @@ def compile_prompts_delta(job_raw_data: dict) -> dict:
       - _unset: List[str]（slotを出力から除外）
       - _add: Dict[str, str|List[str]]（slotにタグを追加）
       - _del: Dict[str, str|List[str]]（slotからタグを完全一致で削除）
+      - _params: List[{node_id, input_name, value}]（ワークフローパラメータ。set→以後継承）
       - _runs: int（このpromptだけのruns指定）
       - _name: str（prompt名）
     - slotの値は内部的に常に List[str]|None に正規化される（str はカンマ区切りで分割）
@@ -84,49 +85,47 @@ def compile_prompts_delta(job_raw_data: dict) -> dict:
         job_raw_data: 読み込んだjob config辞書
         
     Returns:
-        prompts_delta がコンパイルされた job_raw_data（元データを変更しない）
+        scene_delta がコンパイルされた job_raw_data（元データを変更しない）
         
     Raises:
-        ValueError: prompts と prompts_delta が両方存在する場合
-        ValueError: prompt_template が無いのに prompts_delta がある場合
+        ValueError: prompts_delta が指定されている場合（scene_delta を使用してください）
+        ValueError: prompts と scene_delta が両方存在する場合
+        ValueError: prompt_template が無いのに scene_delta がある場合
         ValueError: _from で参照したIDが存在しない場合
     """
     has_prompts = bool(job_raw_data.get('prompts'))
     has_prompts_delta = bool(job_raw_data.get('prompts_delta'))
+    has_scene_delta = bool(job_raw_data.get('scene_delta'))
     
-    # 両方存在したらエラー
-    if has_prompts and has_prompts_delta:
-        raise ValueError("'prompts' と 'prompts_delta' は同時に指定できません。どちらか一方を使用してください。")
+    if has_prompts_delta:
+        raise ValueError("'prompts_delta' は廃止されました。'scene_delta' を使用してください。")
     
-    # prompts_delta が無ければ何もしない
-    if not has_prompts_delta:
+    if has_prompts and has_scene_delta:
+        raise ValueError("'prompts' と 'scene_delta' は同時に指定できません。どちらか一方を使用してください。")
+    
+    if not has_scene_delta:
         return job_raw_data
     
-    # prompt_template が必須
     prompt_template = job_raw_data.get('prompt_template')
     if not prompt_template:
-        raise ValueError("'prompts_delta' を使用する場合は 'prompt_template' が必須です。")
+        raise ValueError("'scene_delta' を使用する場合は 'prompt_template' が必須です。")
     
-    # order と slots を取得
     order = prompt_template.get('order')
     slots = prompt_template.get('slots', {})
     
     if not order:
         raise ValueError("'prompt_template.order' は必須です。")
     
-    # コンパイル処理
-    prompts_delta = job_raw_data['prompts_delta']
+    scene_delta = job_raw_data['scene_delta']
     compiled_prompts = _compile_delta_items(
-        prompts_delta,
+        scene_delta,
         order,
         slots,
         constants=job_raw_data.get('constants') or {},
     )
     
-    # 結果を新しい辞書にコピーして返す
     result = copy.copy(job_raw_data)
     result['prompts'] = compiled_prompts
-    # prompts_delta は残しても良いが、Pydanticが未知キーを許容するなら問題なし
     
     return result
 
@@ -137,30 +136,28 @@ def _compile_delta_items(
     base_slots: Dict[str, Any],
     *,
     constants: Optional[Dict[str, Any]] = None,
-) -> List[Union[List[str], dict]]:
+) -> List[dict]:
     """
     差分アイテムのリストをコンパイルしてprompts形式に変換。
     
     Args:
-        delta_items: prompts_delta のリスト
+        delta_items: scene_delta のリスト
         order: 出力順序
         base_slots: 初期テンプレートのslots
         
     Returns:
-        List[Union[List[str], dict]]: 既存prompts形式
+        List[dict]: 各要素は {template, runs?, name?, params?}
     """
     compiled = []
     
-    # base_slots を List[str]|None に正規化
     base_normalized: Dict[str, Optional[List[str]]] = {}
     for k, v in base_slots.items():
         base_normalized[k] = _normalize_slot_value(v, constants=constants)
     
-    # 各IDごとの解決済みstateを保持（値は常に List[str]|None）
     resolved_states: Dict[str, Dict[str, Optional[List[str]]]] = {}
     resolved_states['base'] = copy.deepcopy(base_normalized)
-    
     prev_state: Dict[str, Optional[List[str]]] = copy.deepcopy(base_normalized)
+    param_state: Dict[str, dict] = {}
     
     for idx, item in enumerate(delta_items):
         item_id = item.get('_id', str(idx))
@@ -168,6 +165,7 @@ def _compile_delta_items(
         unset_keys = item.get('_unset', [])
         add_dict = item.get('_add', {})
         del_dict = item.get('_del', {})
+        params_list = item.get('_params', [])
         runs = item.get('_runs')
         name = item.get('_name')
         
@@ -177,7 +175,7 @@ def _compile_delta_items(
             elif from_ref in resolved_states:
                 current_state = copy.deepcopy(resolved_states[from_ref])
             else:
-                raise ValueError(f"prompts_delta[{idx}]: _from で参照した ID '{from_ref}' は存在しません。")
+                raise ValueError(f"scene_delta[{idx}]: _from で参照した ID '{from_ref}' は存在しません。")
         else:
             current_state = copy.deepcopy(prev_state)
         
@@ -212,24 +210,30 @@ def _compile_delta_items(
             remove_set = set(to_remove)
             current_state[key] = [t for t in existing if t not in remove_set]
         
+        # _params: ワークフローパラメータを更新（set→以後継承）
+        for p in params_list:
+            if not isinstance(p, dict):
+                continue
+            nid = p.get('node_id')
+            iname = p.get('input_name')
+            val = p.get('value')
+            if nid is None or iname is None:
+                continue
+            key = f"{nid}.{iname}"
+            param_state[key] = {'node_id': nid, 'input_name': iname, 'value': val}
+        
         resolved_states[str(item_id)] = copy.deepcopy(current_state)
         prev_state = copy.deepcopy(current_state)
         
-        # orderに従ってフラット化
         flat_tags = _flatten_state_to_tags(current_state, order)
-        
-        # 出力形式を決定
-        if runs is not None or name is not None:
-            # dict形式（template + runs/name）
-            prompt_item = {'template': ', '.join(flat_tags)}
-            if runs is not None:
-                prompt_item['runs'] = runs
-            if name is not None:
-                prompt_item['name'] = name
-            compiled.append(prompt_item)
-        else:
-            # List[str]形式
-            compiled.append(flat_tags)
+        prompt_item = {'template': ', '.join(flat_tags)}
+        if runs is not None:
+            prompt_item['runs'] = runs
+        if name is not None:
+            prompt_item['name'] = name
+        if param_state:
+            prompt_item['params'] = list(param_state.values())
+        compiled.append(prompt_item)
     
     return compiled
 
@@ -264,8 +268,8 @@ class Config:
         job_raw_data = self._load_yaml(self.job_config_path)
         connection_raw_data = self._load_yaml(self.connection_config_path)
         
-        # prompts_delta をコンパイル（Pydantic検証前に実行）
-        job_raw_data = compile_prompts_delta(job_raw_data)
+        # scene_delta をコンパイル（Pydantic検証前に実行）
+        job_raw_data = compile_scene_delta(job_raw_data)
         
         # Pydanticモデルでバリデーション
         self._validate_with_pydantic(job_raw_data, connection_raw_data)

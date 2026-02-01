@@ -146,11 +146,32 @@ class ParameterCombinationModel(BaseModel):
         return v
 
 
+class SceneParamItemModel(BaseModel):
+    """scene_delta 由来のワークフローパラメータ（set→以後継承）。value は任意型。"""
+    node_id: Union[int, str] = Field(..., description="ワークフローのノードIDまたはノード名")
+    input_name: str = Field(..., min_length=1, description="入力パラメータ名")
+    value: Any = Field(None, description="パラメータ値（任意型）")
+
+    @field_validator('node_id')
+    @classmethod
+    def validate_node_id(cls, v):
+        if isinstance(v, int):
+            if v <= 0:
+                raise ValueError("node_idは正の整数である必要があります")
+        elif isinstance(v, str):
+            if not v.strip():
+                raise ValueError("node_id（ノード名）は空文字列ではいけません")
+        else:
+            raise ValueError("node_idは整数または文字列である必要があります")
+        return v
+
+
 class PromptModel(BaseModel):
     """プロンプト定義のモデル（シーケンス用）"""
     template: str = Field(..., min_length=1, description="プロンプトテンプレート")
     runs: Optional[int] = Field(None, description="実行回数")
     name: Optional[str] = Field(None, description="プロンプト名")
+    params: Optional[List[SceneParamItemModel]] = Field(default=None, description="scene_delta由来のワークフローパラメータ（set→以後継承）")
 
 
 class JobConfigModel(BaseModel):

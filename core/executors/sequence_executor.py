@@ -43,7 +43,7 @@ class SequenceJobExecutor(BaseExecutor):
                     
                     logger.info(f"  [{run_counter}/{total_runs}] Running with template: '{processed_template[:70]}...'")
                     
-                    params = self._build_params(processed_template, run_counter - 1)
+                    params = self._build_params(processed_template, run_counter - 1, prompt_def)
                     workflow = self._prepare_workflow(params)
                     self._execute_single_run(job_id, workflow, params)
 
@@ -54,7 +54,7 @@ class SequenceJobExecutor(BaseExecutor):
         finally:
             self.db.close()
 
-    def _build_params(self, template: str, iteration_index: int) -> dict:
+    def _build_params(self, template: str, iteration_index: int, prompt_def) -> dict:
         params = {}
         
         # 1. 固定パラメータを適用（最低優先度）
@@ -74,24 +74,28 @@ class SequenceJobExecutor(BaseExecutor):
                 elif p.type == 'choice':
                     params[key] = random.choice(p.values)
         
-        # 3. パラメータ組み合わせを適用（最高優先度）
+        # 3. パラメータ組み合わせを適用
         if self.config.parameter_combinations:
             combination = self._get_current_parameter_combination(iteration_index)
             if combination:
                 for param in combination.parameters:
                     key = f"{param.node_id}.{param.input_name}"
                     params[key] = param.value
-        
-        # 4. プロンプトを解決
+
+        # 4. scene_delta 由来の params を適用（fixed/random/parameter_combinations より優先）
+        if getattr(prompt_def, 'params', None):
+            for p in prompt_def.params:
+                key = f"{p.node_id}.{p.input_name}"
+                params[key] = p.value
+
+        # 5. プロンプトを解決して prompt_target に適用（最後に適用し、常にプロンプトが勝つ）
         resolved_prompt = self.prompt_resolver.resolve(template)
         logger.info(f" resolved prompt (full): '{resolved_prompt}'")
-        # ★プロンプトを適用するノードIDと入力名をconfigから取得する必要がある
-        #   prompt_target: {node_id: 149, input_name: "text"} のような設定を推奨
         prompt_target = self.config.job_data.get('prompt_target')
         if prompt_target:
-             key = f"{prompt_target['node_id']}.{prompt_target['input_name']}"
-             params[key] = resolved_prompt
-        
+            key = f"{prompt_target['node_id']}.{prompt_target['input_name']}"
+            params[key] = resolved_prompt
+
         return params
 
     def _preprocess_iterators(self) -> Dict[str, List[str]]:
