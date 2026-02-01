@@ -973,6 +973,36 @@ class TestPromptsDelta:
         assert config.prompts[0].template == "a, c"
         assert config.prompts[1].template == "a, c, d"
 
+    def test_prompts_delta_del_with_constants_expanded(self, temp_config_dir, sample_connection_config):
+        """slotが %constant% の場合でも constants 展開後のタグに対して _del が効くテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'prompts_delta_del_constants',
+            'job_type': 'sequence',
+            'constants': {
+                'tags': ['a', 'b', 'c']
+            },
+            'prompt_template': {
+                'order': ['tags'],
+                'slots': {
+                    'tags': '%tags%'
+                }
+            },
+            'prompts_delta': [
+                {'_del': {'tags': 'b'}}
+            ]
+        }
+        config_path = jobs_dir / 'prompts_delta_del_constants.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 1
+        assert config.prompts[0].template == "a, c"
+
     def test_constants_accept_list(self, temp_config_dir, sample_connection_config):
         """constants の値が List[str] でも受け付けるテスト"""
         jobs_dir = temp_config_dir / 'jobs'

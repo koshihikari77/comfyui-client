@@ -1,6 +1,7 @@
 import yaml
 import logging
 import copy
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 from pydantic import ValidationError
@@ -14,7 +15,27 @@ logger = logging.getLogger(__name__)
 # prompts_delta コンパイラ
 # =============================================================================
 
-def _normalize_slot_value(value: Any) -> Optional[List[str]]:
+def _substitute_constants_in_text(text: str, constants: Optional[Dict[str, Any]]) -> str:
+    """
+    %name% 記法を constants で置換する（prompts_delta コンパイル用）。
+    list定数は ", ".join(list) にして展開する。
+    """
+    if not constants:
+        return text
+
+    pattern = r'%([a-zA-Z_][a-zA-Z0-9_]*)%'
+
+    def replace_constant(match: re.Match) -> str:
+        name = match.group(1)
+        if name not in constants:
+            return match.group(0)
+        val = constants[name]
+        return ", ".join(val) if isinstance(val, list) else str(val)
+
+    return re.sub(pattern, replace_constant, text)
+
+
+def _normalize_slot_value(value: Any, constants: Optional[Dict[str, Any]] = None) -> Optional[List[str]]:
     """
     slotの値を List[str] | None に正規化する。
     - null → None
@@ -24,12 +45,22 @@ def _normalize_slot_value(value: Any) -> Optional[List[str]]:
     if value is None:
         return None
     if isinstance(value, list):
-        out = [v.strip() for v in value if isinstance(v, str) and v.strip()]
+        out: List[str] = []
+        for v in value:
+            if not isinstance(v, str):
+                continue
+            s = v.strip()
+            if not s:
+                continue
+            s = _substitute_constants_in_text(s, constants)
+            out.append(s.strip())
         return out
     if isinstance(value, str):
-        if not value.strip():
+        s = value.strip()
+        if not s:
             return None
-        return [s.strip() for s in value.split(',') if s.strip()]
+        s = _substitute_constants_in_text(s, constants)
+        return [part.strip() for part in s.split(',') if part.strip()]
     return None
 
 
@@ -85,7 +116,12 @@ def compile_prompts_delta(job_raw_data: dict) -> dict:
     
     # コンパイル処理
     prompts_delta = job_raw_data['prompts_delta']
-    compiled_prompts = _compile_delta_items(prompts_delta, order, slots)
+    compiled_prompts = _compile_delta_items(
+        prompts_delta,
+        order,
+        slots,
+        constants=job_raw_data.get('constants') or {},
+    )
     
     # 結果を新しい辞書にコピーして返す
     result = copy.copy(job_raw_data)
@@ -98,7 +134,9 @@ def compile_prompts_delta(job_raw_data: dict) -> dict:
 def _compile_delta_items(
     delta_items: List[dict],
     order: List[str],
-    base_slots: Dict[str, Any]
+    base_slots: Dict[str, Any],
+    *,
+    constants: Optional[Dict[str, Any]] = None,
 ) -> List[Union[List[str], dict]]:
     """
     差分アイテムのリストをコンパイルしてprompts形式に変換。
@@ -116,7 +154,7 @@ def _compile_delta_items(
     # base_slots を List[str]|None に正規化
     base_normalized: Dict[str, Optional[List[str]]] = {}
     for k, v in base_slots.items():
-        base_normalized[k] = _normalize_slot_value(v)
+        base_normalized[k] = _normalize_slot_value(v, constants=constants)
     
     # 各IDごとの解決済みstateを保持（値は常に List[str]|None）
     resolved_states: Dict[str, Dict[str, Optional[List[str]]]] = {}
@@ -146,7 +184,7 @@ def _compile_delta_items(
         # set: 予約キー以外のキーを上書き（正規化して List[str]|None）
         for key, value in item.items():
             if not key.startswith('_'):
-                current_state[key] = _normalize_slot_value(value)
+                current_state[key] = _normalize_slot_value(value, constants=constants)
         
         for key in unset_keys:
             current_state[key] = None
@@ -158,7 +196,7 @@ def _compile_delta_items(
                 existing = []
             else:
                 existing = list(existing)
-            to_add = _normalize_slot_value(add_value)
+            to_add = _normalize_slot_value(add_value, constants=constants)
             if to_add:
                 existing.extend(to_add)
             current_state[key] = existing
@@ -168,7 +206,7 @@ def _compile_delta_items(
             existing = current_state.get(key)
             if existing is None or not isinstance(existing, list):
                 continue
-            to_remove = _normalize_slot_value(del_value)
+            to_remove = _normalize_slot_value(del_value, constants=constants)
             if not to_remove:
                 continue
             remove_set = set(to_remove)

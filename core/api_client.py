@@ -3,6 +3,7 @@ import uuid
 import json
 import urllib.request
 import urllib.parse
+import urllib.error
 from typing import Optional
 import logging
 from .interfaces import IAPIClient
@@ -40,9 +41,25 @@ class ComfyUI_APIClient(IAPIClient):
     def queue_prompt(self, workflow: dict) -> str:
         p = {"prompt": workflow, "client_id": self.client_id}
         data = json.dumps(p).encode('utf-8')
-        req = urllib.request.Request(f"{self.server_address}/prompt", data=data)
-        response = json.loads(urllib.request.urlopen(req).read())
-        return response['prompt_id']
+        req = urllib.request.Request(
+            f"{self.server_address}/prompt",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            response = json.loads(urllib.request.urlopen(req).read())
+            return response['prompt_id']
+        except urllib.error.HTTPError as e:
+            # ComfyUIは400時にJSONのエラー詳細を返すことがあるので、本文をログに出す
+            body = ""
+            try:
+                body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                body = "<failed to read error body>"
+            logger.error("ComfyUI /prompt failed: HTTP %s %s", e.code, e.reason)
+            if body:
+                logger.error("ComfyUI error body: %s", body)
+            raise
 
     def get_history(self, prompt_id: str) -> dict:
         with urllib.request.urlopen(f"{self.server_address}/history/{prompt_id}") as response:
