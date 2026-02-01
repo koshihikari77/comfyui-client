@@ -2134,6 +2134,29 @@ python main.py --job-config "configs/jobs/xxx.yaml" --dump-prompts "out.txt"
 
 ---
 
+### 6.5 scene_delta の部分実行（--scenes）
+
+**目的**: `scene_delta` の **ID / index / 範囲** を指定して、特定シーンだけ実行する。  
+**注意**: runs/iterator による「画像単位の指定」は対象外（選択したシーンは通常どおり runs 分実行される）。
+
+**CLI**:
+```bash
+# index 指定
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2"
+
+# ID 指定
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
+
+# 範囲指定（両端含む）
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "3-7"
+```
+
+**制約**:
+- `scene_delta` が無いジョブでは `--scenes` はエラー
+- 実行順は index 昇順
+
+---
+
 ## 7. 将来計画
 
 ### 7.1 予定機能

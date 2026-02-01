@@ -401,6 +401,29 @@ scene_delta:
 
 ---
 
+### 7.8 scene_delta の部分実行（CLI: --scenes）
+
+`scene_delta` の **ID / index / 範囲** を指定して、そのシーンだけ実行できます。  
+**runs/iterator で増える「画像単位の指定」はできません**（選択したシーンは通常どおり runs 分実行されます）。
+
+```bash
+# index 指定
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2"
+
+# ID 指定
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
+
+# 範囲指定（両端含む）
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "3-7"
+
+# 複合指定
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2,base_sitting,5-12"
+```
+
+**注意**:
+- `--scenes` は **scene_delta がある sequence ジョブ専用**です（無い場合はエラー）。
+- 指定したシーンの **実行順は index 昇順**になります。
+
 ## 8. エスケープ
 
 テンプレート中で構文文字をそのまま使いたい場合:

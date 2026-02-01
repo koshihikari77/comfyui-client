@@ -12,6 +12,11 @@ from core.executors.base_executor import BaseExecutor
 from core.executors.sequence_executor import SequenceJobExecutor
 from core.executors.grid_search_executor import GridSearchJobExecutor
 from core.prompt_resolver_v2 import PromptResolverV2
+from core.scene_selection import (
+    extract_scene_delta_id_index_map,
+    filter_config_prompts_inplace,
+    parse_scene_selection,
+)
 
 # プロジェクトルートをPythonパスに追加
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -132,6 +137,11 @@ def main():
         metavar="PATH",
         help="Load job config, resolve all prompts (constants/iterators/preset/wildcard), write one per line to PATH and exit (sequence jobs only)"
     )
+    parser.add_argument(
+        "--scenes",
+        metavar="SPEC",
+        help="scene_delta の ID / index / 範囲（a-b）をカンマ区切りで指定して部分実行する。例: \"0,2,base_sitting,5-12\""
+    )
     args = parser.parse_args()
 
     # ロガーをセットアップ
@@ -151,6 +161,15 @@ def main():
             if job_type != "sequence":
                 logging.error("❌ --dump-prompts supports only sequence jobs (job_type: sequence)")
                 sys.exit(1)
+            if args.scenes:
+                ids_by_index, index_by_id = extract_scene_delta_id_index_map(config.job_data)
+                selected_indices = parse_scene_selection(
+                    args.scenes, index_by_id=index_by_id, max_index=len(ids_by_index)
+                )
+                if not selected_indices:
+                    raise ValueError("--scenes の指定が空です")
+                filter_config_prompts_inplace(config, selected_indices)
+
             v2_config = {
                 "ignore_tags": config.ignore_tags,
                 "ignore_groups": config.ignore_groups,
@@ -209,8 +228,18 @@ def main():
         job_type = config.job_data.get('job_type', 'grid_search') # デフォルトはgrid_search
 
         if job_type == 'grid_search':
+            if args.scenes:
+                raise ValueError("--scenes は scene_delta を使う sequence ジョブ専用です")
             executor = GridSearchJobExecutor(config, service_container)
         elif job_type == 'sequence':
+            if args.scenes:
+                ids_by_index, index_by_id = extract_scene_delta_id_index_map(config.job_data)
+                selected_indices = parse_scene_selection(
+                    args.scenes, index_by_id=index_by_id, max_index=len(ids_by_index)
+                )
+                if not selected_indices:
+                    raise ValueError("--scenes の指定が空です")
+                filter_config_prompts_inplace(config, selected_indices)
             executor = SequenceJobExecutor(config, service_container)
         else:
             raise ValueError(f"Unknown job_type: {job_type}")
