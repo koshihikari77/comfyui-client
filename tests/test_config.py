@@ -1104,6 +1104,66 @@ class TestPromptsDelta:
         assert config.prompts[1].template == "masterpiece, best quality, 1girl, blue eyes, smile"
         assert config.prompts[2].template == "masterpiece, best quality, 1girl"
 
+    def test_scene_delta_slot_plus_minus_notation(self, temp_config_dir, sample_connection_config):
+        """slot の + / - 記法で追加・削除されるテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_plus_minus',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['quality', 'subject', 'pose'],
+                'slots': {
+                    'quality': 'masterpiece',
+                    'subject': '1girl',
+                    'pose': 'standing'
+                }
+            },
+            'scene_delta': [
+                {'pose': '+hand up'},
+                {'pose': '-standing'}
+            ]
+        }
+        config_path = jobs_dir / 'scene_delta_plus_minus.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 2
+        assert config.prompts[0].template == "masterpiece, 1girl, standing, hand up"
+        assert config.prompts[1].template == "masterpiece, 1girl, hand up"
+
+    def test_scene_delta_slot_plus_minus_mixed_with_add_del(self, temp_config_dir, sample_connection_config):
+        """slot の + 記法と _add が同一シーンで混在するテスト"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir(exist_ok=True)
+        config_data = {
+            'job_name': 'scene_delta_plus_mixed',
+            'job_type': 'sequence',
+            'prompt_template': {
+                'order': ['subject', 'pose', 'extra'],
+                'slots': {
+                    'subject': '1girl',
+                    'pose': 'standing',
+                    'extra': []
+                }
+            },
+            'scene_delta': [
+                {'pose': '+hand up', '_add': {'extra': 'smile'}}
+            ]
+        }
+        config_path = jobs_dir / 'scene_delta_plus_mixed.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+        assert len(config.prompts) == 1
+        assert config.prompts[0].template == "1girl, standing, hand up, smile"
+
     def test_prompts_delta_str_slot_normalized_add_del(self, temp_config_dir, sample_connection_config):
         """slotがstrでも正規化され_add/_delが動くテスト"""
         jobs_dir = temp_config_dir / 'jobs'

@@ -190,10 +190,41 @@ def _compile_delta_items(
             current_state = copy.deepcopy(prev_state)
             current_visibility = copy.deepcopy(prev_visibility)
         
-        # set: 予約キー以外のキーを上書き（正規化して List[str]|None）
+        # set / slot の + - 記法: 予約キー以外のキーを走査
+        add_from_slot: Dict[str, List[str]] = {}
+        del_from_slot: Dict[str, List[str]] = {}
         for key, value in item.items():
-            if not key.startswith('_'):
-                current_state[key] = _normalize_slot_value(value, constants=constants)
+            if key.startswith('_'):
+                continue
+            if isinstance(value, str):
+                s = value.strip()
+                if s.startswith('+'):
+                    tags = _normalize_slot_value(s[1:].strip(), constants=constants)
+                    if tags:
+                        add_from_slot[key] = tags
+                    continue
+                if s.startswith('-'):
+                    tags = _normalize_slot_value(s[1:].strip(), constants=constants)
+                    if tags:
+                        del_from_slot[key] = tags
+                    continue
+            current_state[key] = _normalize_slot_value(value, constants=constants)
+        # slot 由来の add を適用（_add と同じロジック）
+        for key, to_add in add_from_slot.items():
+            existing = current_state.get(key)
+            if existing is None:
+                existing = []
+            else:
+                existing = list(existing)
+            existing.extend(to_add)
+            current_state[key] = existing
+        # slot 由来の del を適用（_del と同じロジック）
+        for key, to_remove in del_from_slot.items():
+            existing = current_state.get(key)
+            if existing is None or not isinstance(existing, list):
+                continue
+            remove_set = set(to_remove)
+            current_state[key] = [t for t in existing if t not in remove_set]
         
         for key in unset_keys:
             current_state[key] = None

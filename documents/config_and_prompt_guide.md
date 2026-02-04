@@ -399,6 +399,24 @@ scene_delta:
 2. "1girl, blue eyes, blonde hair, smile"
 ```
 
+**slot の `+` / `-` 記法（_add / _del の省略記法）**  
+通常の slot 指定で、値の**先頭が `+` なら追加**、**`-` なら削除**として扱えます。`_add` / `_del` と同一シーン内で混在可能です。値はダブルクォートで囲むだけでよく、外側のクォートは不要です。
+
+- `slot: "+tag"` または `slot: "+tag1, tag2"` → その slot に追加（`_add: { slot: "tag" }` と同じ）
+- `slot: "-tag"` または `slot: "-tag1, tag2"` → その slot から完全一致で削除（`_del: { slot: "tag" }` と同じ）
+
+```yaml
+prompt_template:
+  order: [subject, pose]
+  slots:
+    subject: "1girl"
+    pose: "standing"
+
+scene_delta:
+  - { pose: "+hand up" }   # pose に "hand up" を追加
+  - { pose: "-standing" }  # pose から "standing" を削除
+```
+
 ### 7.5 slotの除外・非表示
 
 - **`_unset`**: slotの**値**を None にし、出力からも除外する。以後のシーンでもその slot は「無い」状態が継承される。
