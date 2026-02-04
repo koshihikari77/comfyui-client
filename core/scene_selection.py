@@ -30,6 +30,8 @@ def parse_scene_selection(spec: str, index_by_id: Dict[str, int], max_index: int
     対応形式:
       - 数字: "0"
       - 範囲: "3-5"（両端含む）
+      - 開始のみ: "6-" / "base_sitting-" → 指定から最後まで
+      - 終了のみ: "-6" / "-base_sitting" → 先頭から指定まで
       - ID: "base_sitting"
       - カンマ区切り: "0,2,base_sitting,5-12"
     """
@@ -39,8 +41,25 @@ def parse_scene_selection(spec: str, index_by_id: Dict[str, int], max_index: int
     if not tokens:
         return []
 
+    def resolve_start(s: str) -> int:
+        s = s.strip()
+        if s.isdigit():
+            return int(s)
+        if s in index_by_id:
+            return index_by_id[s]
+        raise ValueError(f"--scenes の指定が不正です（ID が見つかりません）: {s}")
+
+    def resolve_end(s: str) -> int:
+        s = s.strip()
+        if s.isdigit():
+            return int(s)
+        if s in index_by_id:
+            return index_by_id[s]
+        raise ValueError(f"--scenes の指定が不正です（ID が見つかりません）: {s}")
+
     selected: List[int] = []
     for token in tokens:
+        # 閉区間 "a-b"（両方数字）
         range_match = re.match(r"^(\d+)\s*-\s*(\d+)$", token)
         if range_match:
             start = int(range_match.group(1))
@@ -50,6 +69,24 @@ def parse_scene_selection(spec: str, index_by_id: Dict[str, int], max_index: int
             if start < 0 or end >= max_index:
                 raise ValueError(f"--scenes の範囲指定が範囲外です: {token}")
             selected.extend(range(start, end + 1))
+            continue
+
+        # 開始のみ "start-" または "id-"
+        start_only = re.match(r"^(.+)\s*-\s*$", token)
+        if start_only:
+            start = resolve_start(start_only.group(1))
+            if start < 0 or start >= max_index:
+                raise ValueError(f"--scenes の範囲指定が範囲外です: {token}")
+            selected.extend(range(start, max_index))
+            continue
+
+        # 終了のみ "-end" または "-id"
+        end_only = re.match(r"^\s*-\s*(.+)$", token)
+        if end_only:
+            end = resolve_end(end_only.group(1))
+            if end < 0 or end >= max_index:
+                raise ValueError(f"--scenes の範囲指定が範囲外です: {token}")
+            selected.extend(range(0, end + 1))
             continue
 
         if token.isdigit():

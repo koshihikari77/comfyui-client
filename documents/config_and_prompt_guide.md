@@ -448,6 +448,14 @@ python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting,teasi
 # 範囲指定（両端含む）
 python main.py --job-config "configs/jobs/xxx.yaml" --scenes "3-7"
 
+# ここから最後まで（開始のみ）
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "6-"
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting-"
+
+# 先頭からここまで（終了のみ）
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "-6"
+python main.py --job-config "configs/jobs/xxx.yaml" --scenes "-base_sitting"
+
 # 複合指定
 python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2,base_sitting,5-12"
 ```

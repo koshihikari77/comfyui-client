@@ -27,6 +27,42 @@ def test_parse_scene_selection_out_of_range():
         parse_scene_selection("10", index_by_id=index_by_id, max_index=3)
 
 
+def test_parse_scene_selection_start_only_index():
+    """6- が [6..max-1] になる"""
+    index_by_id = {}
+    selected = parse_scene_selection("6-", index_by_id=index_by_id, max_index=10)
+    assert selected == [6, 7, 8, 9]
+
+
+def test_parse_scene_selection_end_only_index():
+    """-6 が [0..6] になる"""
+    index_by_id = {}
+    selected = parse_scene_selection("-6", index_by_id=index_by_id, max_index=10)
+    assert selected == [0, 1, 2, 3, 4, 5, 6]
+
+
+def test_parse_scene_selection_start_only_id():
+    """id- が id→index 解決され [start..max-1] になる"""
+    index_by_id = {"base": 1, "foo": 4}
+    selected = parse_scene_selection("base-", index_by_id=index_by_id, max_index=7)
+    assert selected == [1, 2, 3, 4, 5, 6]
+
+
+def test_parse_scene_selection_end_only_id():
+    """-id が id→index 解決され [0..end] になる"""
+    index_by_id = {"base": 1, "foo": 4}
+    selected = parse_scene_selection("-foo", index_by_id=index_by_id, max_index=7)
+    assert selected == [0, 1, 2, 3, 4]
+
+
+def test_parse_scene_selection_mixed_with_open_ranges():
+    """既存 spec と開区間の混在"""
+    index_by_id = {"mid": 2}
+    selected = parse_scene_selection("0, 2-3, mid-, -1", index_by_id=index_by_id, max_index=5)
+    # 0, 2, 3, mid-(2,3,4), -1(0,1) → 0,1,2,3,4
+    assert selected == [0, 1, 2, 3, 4]
+
+
 def test_filter_prompts_by_scene_id(temp_config_dir, sample_connection_config):
     jobs_dir = temp_config_dir / "jobs"
     jobs_dir.mkdir()
