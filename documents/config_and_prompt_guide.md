@@ -112,9 +112,11 @@ prompts:
     runs: 3
 ```
 
-### 4.2 default_runs（ジョブ全体のデフォルト実行回数）
+### 4.2 default_runs（ジョブ全体のデフォルト実行回数）と runs の意味
 
 ジョブのトップレベルで **`default_runs`** を指定すると、各プロンプトで `runs`（または scene_delta の `_runs`）を書いていない場合に、その回数が使われます。デフォルトは `1` です。
+
+**runs は「そのシーンで生成する枚数」の上限**です。テンプレートに `{name}`（直積）が含まれる場合、組み合わせ数を超える run では cycle（`run_index % 組み合わせ数`）で同じ組み合わせ列を繰り返します。詳細は **6.2 Placeholder** を参照してください。
 
 ```yaml
 job_type: "sequence"
@@ -240,7 +242,7 @@ ComfyVの「プロンプト」は、単なる文字列ではなく、記法を�
 ### 5.1 記法一覧
 
 - **Preset**: `<preset:...>`
-- **Placeholder**: `{name}`
+- **Placeholder**: `{name}`（直積・デフォルト）/ `{name:r}`（ランダム）
 - **Wildcard**: `__name__`
 - **Constant**（Sequence前処理）: `%name%`
 - **Iterator**（Sequence前処理）: `$[name]`
@@ -283,11 +285,23 @@ GridSearchの場合:
 階層（ファイル階層を `/` で表現）:
 - `<preset:character/akira#base>`
 
-### 6.2 Placeholder（{name}）
+### 6.2 Placeholder（{name} / {name:r}）
 
-`placeholders:` に定義した値から置換します。
-- sample（通常）: ランダムに1つ選択
-- expand（GridSearch前処理など）: 全組み合わせ展開
+`placeholders:` に定義した値から置換します。**同一テンプレート内で expand と sample を混在できます。**
+
+| 記法 | 意味 | 用途 |
+|------|------|------|
+| `{name}` | **直積（expand）** — 組み合わせ列の n 番目を順に使用 | Sequence では run ごとに 0, 1, 2, … 番目の組み合わせを順に適用 |
+| `{name:r}` | **ランダム（sample）** — 毎回ランダムに1つ選択 | 直積にしたくない slot だけ :r を付ける |
+
+**Sequence での runs の扱い**  
+- `runs` は「そのシーンで生成する枚数」の**上限**です。  
+- expand の組み合わせ数（comboCount）が runs より少ない場合は **cycle** します（`run_index % comboCount` で n を決める）。  
+- 例: `{a}` が 2 候補・`{b}` が 3 候補 → comboCount=6。`runs: 10` なら 0〜5 番目を順に使い、6〜9 回目は 0〜3 番目を再度使用。
+
+**直積上限（placeholder_max_expansion）**  
+- expand の組み合わせ数がこの値を超えるとエラーになります。  
+- デフォルトは **128**。ジョブ設定や Resolver の config で `placeholder_max_expansion` を指定すると上書きできます。
 
 ### 6.3 Wildcard（__name__）
 

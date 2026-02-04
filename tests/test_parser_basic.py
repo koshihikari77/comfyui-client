@@ -58,6 +58,14 @@ def test_placeholder_parsing():
     assert len(ast) == 1
     assert isinstance(ast[0], Placeholder)
     assert ast[0].name == "emotion"
+    assert ast[0].mode == "expand"
+    
+    # :r はランダム（sample）モード
+    ast_r = parser.parse("{emotion:r}")
+    assert len(ast_r) == 1
+    assert isinstance(ast_r[0], Placeholder)
+    assert ast_r[0].name == "emotion"
+    assert ast_r[0].mode == "sample"
     
     print("✓ Placeholder parsing works")
 

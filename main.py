@@ -89,10 +89,10 @@ def generate_resolved_prompts(config: Config, resolver: PromptResolverV2) -> Lis
     for prompt_def in config.prompts:
         template = prompt_def.template
         num_runs = getattr(prompt_def, 'runs', None) or default_runs
-        for _ in range(num_runs):
+        for i in range(num_runs):
             processed = _substitute_constants(template, constants)
             processed = _substitute_iterators(processed, resolved_iterators, iterator_counters)
-            resolved = resolver.resolve(processed)
+            resolved = resolver.resolve_nth(processed, i, cycle=True)
             lines.append(resolved)
     return lines
 

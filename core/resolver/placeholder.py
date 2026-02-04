@@ -17,8 +17,9 @@ from .exceptions import PlaceholderError, RecursionLimitError
 
 logger = logging.getLogger(__name__)
 
-# 設計書10.2および o3推奨の展開数制限
-MAX_EXPANSION = 128
+# 設計書10.2および o3推奨の展開数制限（直積上限のデフォルト）
+DEFAULT_MAX_EXPANSION = 128
+MAX_EXPANSION = DEFAULT_MAX_EXPANSION  # 後方互換
 
 # 設計書10.2に基づく再帰深度制限（parser.pyと同じ値）
 MAX_DEPTH = 20
@@ -60,6 +61,139 @@ class PlaceholderSubstitutor:
             return self._substitute_sample(ast, placeholders)
         else:  # expand
             return self._substitute_expand(ast, placeholders)
+    
+    def count_expand_combinations(self, ast: TemplateAST) -> int:
+        """
+        expandモードのプレースホルダーのみを対象に、直積の組み合わせ数を返す。
+        
+        Args:
+            ast: 入力AST
+            
+        Returns:
+            組み合わせ数（expand が無い場合は 1）
+        """
+        expand_placeholders = [
+            (i, node) for i, node in enumerate(ast) if isinstance(node, Placeholder) and node.mode == "expand"
+        ]
+        if not expand_placeholders:
+            return 1
+        count = 1
+        for _idx, node in expand_placeholders:
+            try:
+                candidates = self._get_placeholder_candidates(node.name)
+                count *= max(len(candidates), 1)
+            except PlaceholderError:
+                if self.context.strict_level == "error":
+                    raise
+                count *= 1
+        return count
+    
+    def substitute_mixed_nth(
+        self,
+        ast: TemplateAST,
+        n: int,
+        cycle: bool = True,
+        max_expansion: int = DEFAULT_MAX_EXPANSION,
+    ) -> TemplateAST:
+        """
+        expand は n 番目の直積組み合わせを選択、sample(:r) はランダム1つを選択して
+        1本の AST に置換する。itertools.product と同じ順序（最後の expand が最速で回る）。
+        
+        Args:
+            ast: 入力AST
+            n: 組み合わせインデックス（0-based）
+            cycle: True のとき n を combo_count で剰余する
+            max_expansion: 直積組み合わせ数がこれを超えると RecursionLimitError
+            
+        Returns:
+            置換済み単一AST
+        """
+        placeholders = [(i, node) for i, node in enumerate(ast) if isinstance(node, Placeholder)]
+        if not placeholders:
+            return deepcopy(ast)
+        
+        expand_list = [(i, node) for i, node in placeholders if node.mode == "expand"]
+        sample_list = [(i, node) for i, node in placeholders if node.mode == "sample"]
+        
+        # 直積の組み合わせ数と n 番目のインデックス列
+        expand_values: List[str] = []
+        if expand_list:
+            candidate_lists: List[List[str]] = []
+            for _idx, node in expand_list:
+                try:
+                    cands = self._get_placeholder_candidates(node.name)
+                    candidate_lists.append(cands if cands else [""])
+                except PlaceholderError as e:
+                    if self.context.strict_level == "error":
+                        raise
+                    candidate_lists.append([""])
+            sizes = [len(c) for c in candidate_lists]
+            combo_count = 1
+            for s in sizes:
+                combo_count *= s
+            if combo_count > max_expansion:
+                raise RecursionLimitError(
+                    f"Placeholder expansion too large: {combo_count} > {max_expansion}",
+                    depth=combo_count,
+                )
+            if cycle:
+                n = n % combo_count if combo_count else 0
+            elif n >= combo_count:
+                raise PlaceholderError(
+                    f"Combination index n={n} >= combo_count={combo_count}",
+                    placeholder_name="",
+                )
+            # mixed radix: n から各次元のインデックスを算出（最後が最速）
+            indices: List[int] = []
+            r = n
+            for k in range(len(sizes) - 1, -1, -1):
+                base = 1
+                for j in range(k + 1, len(sizes)):
+                    base *= sizes[j]
+                idx_k = (r // base) % sizes[k]
+                indices.append(idx_k)
+            indices.reverse()
+            expand_values = [candidate_lists[i][indices[i]] for i in range(len(expand_list))]
+        
+        # (ast_index, expand_value or None) で置換用マップ
+        expand_by_idx = {}
+        for ord_idx, (ast_idx, _node) in enumerate(expand_list):
+            expand_by_idx[ast_idx] = expand_values[ord_idx]
+        
+        result_ast = deepcopy(ast)
+        # 後ろから処理してインデックスずれを回避
+        for idx, node in reversed(placeholders):
+            if node.mode == "expand":
+                value = expand_by_idx[idx]
+            else:
+                try:
+                    candidates = self._get_placeholder_candidates(node.name)
+                    value = self.context.rng.choice(candidates) if candidates else ""
+                except PlaceholderError as e:
+                    if self.context.strict_level == "error":
+                        raise
+                    value = ""
+                if not value and self.context.strict_level == "warn":
+                    logger.warning(f"Placeholder '{node.name}' has empty candidates (fallback=empty)")
+            replacement = self._value_to_node(value, node)
+            result_ast[idx : idx + 1] = replacement if isinstance(replacement, list) else [replacement]
+        
+        return result_ast
+    
+    def _value_to_node(self, value: str, placeholder_node: Placeholder) -> Union[ASTNode, List[ASTNode]]:
+        """置換文字列を Text または再パース結果のノード（リスト）に変換する。"""
+        if self._needs_reparse(value):
+            try:
+                sub_ast = self._parse_and_evaluate_recursive(value)
+                return sub_ast
+            except Exception as e:
+                logger.warning(
+                    f"Reparse failed for placeholder '{placeholder_node.name}' with value '{value}': {e}"
+                )
+                if self.context.strict_level == "error":
+                    raise
+                return Text(value=value)
+        return Text(value=value)
     
     def _substitute_sample(self, ast: TemplateAST, placeholders: List[tuple]) -> TemplateAST:
         """
@@ -114,7 +248,7 @@ class PlaceholderSubstitutor:
     
     def _substitute_expand(self, ast: TemplateAST, placeholders: List[tuple]) -> List[TemplateAST]:
         """
-        展開モード: 全プレースホルダーの直積展開
+        展開モード: expand のプレースホルダーのみ直積展開し、sample は各組み合わせでランダム選択。
         
         Args:
             ast: 入力AST
@@ -123,9 +257,11 @@ class PlaceholderSubstitutor:
         Returns:
             すべての組み合わせのASTリスト
         """
-        # 各プレースホルダーの候補リストを取得
+        expand_placeholders = [(idx, node) for idx, node in placeholders if node.mode == "expand"]
+        sample_placeholders = [(idx, node) for idx, node in placeholders if node.mode == "sample"]
+        # 各 expand プレースホルダーの候補リストを取得
         candidate_lists = []
-        for idx, node in placeholders:
+        for idx, node in expand_placeholders:
             try:
                 candidates = self._get_placeholder_candidates(node.name)
                 if not candidates:
@@ -137,45 +273,34 @@ class PlaceholderSubstitutor:
                 elif self.context.strict_level == "warn":
                     logger.warning(f"PlaceholderError (fallback=empty): {e} | strict_level={self.context.strict_level}")
                     candidate_lists.append([""])
-                else:  # soft
+                else:
                     candidate_lists.append([""])
         
-        # 直積展開（o3推奨：isliceでメモリ安全化改善版）
-        product_iter = product(*candidate_lists)
-        
-        # 各組み合わせごとにAST生成（メモリ効率版）
+        product_iter = product(*candidate_lists) if candidate_lists else [()]
         result_asts = []
         combo_count = 0
         
         for combo in product_iter:
             combo_count += 1
-            
-            # 展開数制限チェック（129件目で中断）
             if combo_count > MAX_EXPANSION:
                 raise RecursionLimitError(
                     f"Placeholder expansion too large: >{MAX_EXPANSION} combinations",
-                    depth=combo_count
+                    depth=combo_count,
                 )
             cloned_ast = deepcopy(ast)
-            
-            # 後ろから処理してインデックスずれを回避
-            for (idx, node), value in reversed(list(zip(placeholders, combo))):
-                # o3提案: 再パース機能（多段ネスト対応）
-                if self._needs_reparse(value):
-                    try:
-                        # 多段再パース対応: while収束まで継続
-                        sub_ast = self._parse_and_evaluate_recursive(value)
-                        # ASTスプライス: 単一ノードを複数ノードで置換
-                        cloned_ast[idx:idx+1] = deepcopy(sub_ast)
-                    except Exception as e:
-                        # 再パース失敗時のフォールバック
-                        logger.warning(f"Reparse failed for placeholder '{node.name}' with value '{value}': {e}")
-                        if self.context.strict_level == "error":
-                            raise
-                        cloned_ast[idx] = Text(value=value)
-                else:
-                    cloned_ast[idx] = Text(value=value)
-            
+            for (idx, node), value in reversed(list(zip(expand_placeholders, combo))):
+                replacement = self._value_to_node(value, node)
+                cloned_ast[idx : idx + 1] = replacement if isinstance(replacement, list) else [replacement]
+            for idx, node in reversed(sample_placeholders):
+                try:
+                    candidates = self._get_placeholder_candidates(node.name)
+                    value = self.context.rng.choice(candidates) if candidates else ""
+                except PlaceholderError:
+                    if self.context.strict_level == "error":
+                        raise
+                    value = ""
+                replacement = self._value_to_node(value, node)
+                cloned_ast[idx : idx + 1] = replacement if isinstance(replacement, list) else [replacement]
             result_asts.append(cloned_ast)
         
         return result_asts
@@ -249,8 +374,8 @@ class PlaceholderSubstitutor:
         # Preset構文: <preset:xxx> （/を含むキーに対応、Phase 5改善）
         if re.search(r'<preset:[A-Za-z0-9_#+\-/]+>', choice):
             return True
-        # Placeholder構文: {xxx} （改善：内容を厳密チェック）
-        if re.search(r'\{[A-Za-z0-9_]+\}', choice):
+        # Placeholder構文: {xxx} または {xxx:r}
+        if re.search(r'\{[A-Za-z0-9_\-/]+(:r)?\}', choice):
             return True
         # Wildcard構文: __xxx__ （/を含むキーに対応、Phase 5改善）
         if re.search(r'__[A-Za-z0-9_\-/]+__', choice):

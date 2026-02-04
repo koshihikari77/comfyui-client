@@ -18,6 +18,7 @@ from .resolver.placeholder import PlaceholderSubstitutor
 from .resolver.wildcard import WildcardSubstitutor
 from .resolver.filter import TagFilter
 from .resolver.formatter import PromptFormatter
+from .resolver.exceptions import RecursionLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,8 @@ class PromptResolverV2(IPromptResolver):
             placeholders=config.get('placeholders', {}),
             locale=config.get('locale', ','),
             strict_level=config.get('strict_level', 'warn'),
-            reparse_depth=0
+            reparse_depth=0,
+            placeholder_max_expansion=config.get('placeholder_max_expansion', 128),
         )
     
     def _load_presets(self) -> Dict[str, PresetFile]:
@@ -167,8 +169,10 @@ class PromptResolverV2(IPromptResolver):
             # ③ PresetSubst (統合によりスキップ)
             # ast = self.preset_substitutor.substitute_ast(ast)
             
-            # ④ Placeholder (sampleモード)
-            ast = self.placeholder_substitutor.substitute_ast(ast)
+            # ④ Placeholder（混在: expand は n 番目、sample(:r) はランダム。n=0 で API 互換）
+            ast = self.placeholder_substitutor.substitute_mixed_nth(
+                ast, 0, cycle=True, max_expansion=self.context.placeholder_max_expansion
+            )
             
             # ⑤ Wildcard
             ast = self.wildcard_substitutor.substitute_ast(ast)
@@ -190,6 +194,48 @@ class PromptResolverV2(IPromptResolver):
         except Exception as e:
             logger.error(f"V2 pipeline failed to resolve: '{template_string}'", exc_info=True)
             # エラー時は元文字列を返す（V1互換）
+            return template_string
+    
+    def resolve_nth(
+        self,
+        template_string: str,
+        n: int,
+        cycle: bool = True,
+        placeholders: Optional[Dict] = None,
+    ) -> str:
+        """
+        n 番目の直積組み合わせで解決（Sequence や dump-prompts 用）。
+        expand は n 番目を選択、sample(:r) はランダム。cycle=True なら n を combo_count で剰余。
+        
+        Args:
+            template_string: テンプレート文字列
+            n: 組み合わせインデックス（0-based）
+            cycle: True のとき n を組み合わせ数で剰余する
+            placeholders: 一時的に使うプレースホルダー辞書（省略時は context のまま）
+            
+        Returns:
+            解決済みプロンプト文字列
+        """
+        try:
+            original = self.context.placeholders
+            if placeholders is not None:
+                self.context.placeholders = placeholders
+            try:
+                ast = self.parser.parse(template_string)
+                ast = self.preset_evaluator.evaluate_ast(ast)
+                ast = self.placeholder_substitutor.substitute_mixed_nth(
+                    ast, n, cycle=cycle, max_expansion=self.context.placeholder_max_expansion
+                )
+                ast = self.wildcard_substitutor.substitute_ast(ast)
+                tagset = self.tag_filter.filter_ast(ast)
+                if not tagset:
+                    return template_string
+                return self.formatter.format_tagset(tagset)
+            finally:
+                if placeholders is not None:
+                    self.context.placeholders = original
+        except Exception as e:
+            logger.error(f"V2 resolve_nth failed: n={n} '{template_string}'", exc_info=True)
             return template_string
     
     def resolve_full(self, template: str, placeholders: Optional[Dict] = None) -> str:
@@ -240,35 +286,25 @@ class PromptResolverV2(IPromptResolver):
             try:
                 # ① Parse
                 ast = self.parser.parse(template)
-                
-                # ② PresetEval (ネスト処理統合済み)
+                # ② PresetEval
                 ast = self.preset_evaluator.evaluate_ast(ast)
-                
-                # ③ PresetSubst (統合によりスキップ)
-                # ast = self.preset_substitutor.substitute_ast(ast)
-                
-                # ④ Placeholder (expandモード)
-                ast_result = self.placeholder_substitutor.substitute_ast(ast)
-                
-                # expandモードの場合、listが返される可能性がある
-                if isinstance(ast_result, list):
-                    ast_list = ast_result
-                else:
-                    ast_list = [ast_result]
-                
-                # 各ASTに対して⑤⑥⑦を実行
+                # ③ expand 組み合わせ数に応じて n 番目を列挙（真に全組合せ）
+                combo_count = self.placeholder_substitutor.count_expand_combinations(ast)
+                max_exp = self.context.placeholder_max_expansion
+                if combo_count > max_exp:
+                    raise RecursionLimitError(
+                        f"Placeholder expansion too large: {combo_count} > {max_exp}",
+                        depth=combo_count,
+                    )
                 results = []
-                for ast in ast_list:
-                    # ⑤ Wildcard
-                    ast = self.wildcard_substitutor.substitute_ast(ast)
-                    
-                    # ⑥ Filter
-                    tagset = self.tag_filter.filter_ast(ast)
-                    
-                    # ⑦ Format
-                    result = self.formatter.format_tagset(tagset)
+                for n in range(combo_count):
+                    ast_n = self.placeholder_substitutor.substitute_mixed_nth(
+                        ast, n, cycle=False, max_expansion=max_exp
+                    )
+                    ast_n = self.wildcard_substitutor.substitute_ast(ast_n)
+                    tagset = self.tag_filter.filter_ast(ast_n)
+                    result = self.formatter.format_tagset(tagset) if tagset else template
                     results.append(result)
-                
                 logger.debug(f"V2 expanded into {len(results)} variations")
                 return results
                 
@@ -296,6 +332,8 @@ class PromptResolverV2(IPromptResolver):
         
         if 'seed' in config:
             self.context.rng = Random(config['seed'])
+        if 'placeholder_max_expansion' in config:
+            self.context.placeholder_max_expansion = config['placeholder_max_expansion']
         
     def get_preset_groups(self, preset_key: str) -> List[str]:
         """

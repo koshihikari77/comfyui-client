@@ -43,7 +43,8 @@ class SequenceJobExecutor(BaseExecutor):
                     
                     logger.info(f"  [{run_counter}/{total_runs}] Running with template: '{processed_template[:70]}...'")
                     
-                    params = self._build_params(processed_template, run_counter - 1, prompt_def)
+                    # iteration_index=グローバル run 番号, i=シーン内ローカル run 番号（resolve_nth 用）
+                    params = self._build_params(processed_template, run_counter - 1, i, prompt_def)
                     workflow = self._prepare_workflow(params)
                     self._execute_single_run(job_id, workflow, params)
 
@@ -54,7 +55,7 @@ class SequenceJobExecutor(BaseExecutor):
         finally:
             self.db.close()
 
-    def _build_params(self, template: str, iteration_index: int, prompt_def) -> dict:
+    def _build_params(self, template: str, iteration_index: int, local_run_index: int, prompt_def) -> dict:
         params = {}
         
         # 1. 固定パラメータを適用（最低優先度）
@@ -88,8 +89,8 @@ class SequenceJobExecutor(BaseExecutor):
                 key = f"{p.node_id}.{p.input_name}"
                 params[key] = p.value
 
-        # 5. プロンプトを解決して prompt_target に適用（最後に適用し、常にプロンプトが勝つ）
-        resolved_prompt = self.prompt_resolver.resolve(template)
+        # 5. プロンプトを解決して prompt_target に適用（n 番目直積＋cycle、最後に適用し常にプロンプトが勝つ）
+        resolved_prompt = self.prompt_resolver.resolve_nth(template, local_run_index, cycle=True)
         logger.info(f" resolved prompt (full): '{resolved_prompt}'")
         prompt_target = self.config.job_data.get('prompt_target')
         if prompt_target:

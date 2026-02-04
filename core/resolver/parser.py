@@ -75,12 +75,13 @@ class TemplateTransformer(Transformer):
         finally:
             self._exit_depth()
     
-    def placeholder(self, children: List[Token]) -> Placeholder:
-        """プレースホルダーノードを作成"""
+    def placeholder(self, children: List) -> Placeholder:
+        """プレースホルダーノードを作成（:r のとき mode=sample、省略時 expand）"""
         self._enter_depth()
         try:
             name = str(children[0])
-            return Placeholder(name=name)
+            mode = "sample" if len(children) >= 2 else "expand"
+            return Placeholder(name=name, mode=mode)
         finally:
             self._exit_depth()
     

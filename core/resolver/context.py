@@ -82,6 +82,8 @@ class ResolverContext(BaseModel):
     strict_level: Literal["soft", "warn", "error"] = "warn"  # エラー扱いポリシー
     # Placeholder/Wildcard 再パース時の深度カウンタ（全ステージ共有）
     reparse_depth: int = 0
+    # 直積展開の上限（超えると RecursionLimitError）。設定で上書き可能。
+    placeholder_max_expansion: int = 128
     
     class Config:
         arbitrary_types_allowed = True
@@ -98,7 +100,8 @@ class ResolverContext(BaseModel):
             placeholders={},
             locale=",",
             strict_level="warn",
-            reparse_depth=0
+            reparse_depth=0,
+            placeholder_max_expansion=128,
         )
     
     def with_seed(self, seed: int) -> "ResolverContext":

@@ -9,7 +9,11 @@ import logging
 from random import Random
 from ordered_set import OrderedSet
 
-from core.resolver.placeholder import PlaceholderSubstitutor, MAX_EXPANSION
+from core.resolver.placeholder import (
+    PlaceholderSubstitutor,
+    MAX_EXPANSION,
+    DEFAULT_MAX_EXPANSION,
+)
 from core.resolver.context import ResolverContext, PresetFile
 from core.resolver.ast import Placeholder, Text, PresetExpr, TagLeaf
 from core.resolver.exceptions import PlaceholderError, RecursionLimitError
@@ -36,6 +40,7 @@ class TestPlaceholderSubstitutorSample:
     
     def test_single_placeholder_sample(self):
         """単一プレースホルダーのサンプル"""
+        # Placeholder(name=...) はデフォルト mode="expand"; substitutor の mode="sample" でランダム選択
         ast = [Text(value="I am "), Placeholder(name="emotion"), Text(value=" today")]
         result = self.substitutor.substitute_ast(ast)
         
@@ -562,6 +567,7 @@ class TestPlaceholderSubstitutorReparse:
         # テスト用の内部メソッド
         assert substitutor._needs_reparse("<preset:quality>") == True
         assert substitutor._needs_reparse("{placeholder}") == True
+        assert substitutor._needs_reparse("{placeholder:r}") == True
         assert substitutor._needs_reparse("__wildcard__") == True
         assert substitutor._needs_reparse("normal text") == False
         assert substitutor._needs_reparse("text with _ underscore") == False
@@ -687,6 +693,7 @@ class TestPlaceholderSubstitutorAdvanced:
         true_positive_cases = [
             "<preset:quality#base>",
             "{placeholder}",
+            "{placeholder:r}",
             "__wildcard__",
             "text <preset:quality> more",
             "text {placeholder} more",
@@ -755,3 +762,101 @@ class TestPlaceholderSubstitutorAdvanced:
         
         # 実行後は深度がリセットされていること
         assert context.reparse_depth == 0
+
+
+class TestCountExpandCombinationsAndSubstituteMixedNth:
+    """count_expand_combinations と substitute_mixed_nth のテスト"""
+
+    def setup_method(self):
+        self.context = ResolverContext(
+            presets={},
+            wildcards={},
+            rng=Random(42),
+            placeholders={
+                "a": ["a1", "a2"],
+                "b": ["b1", "b2", "b3"],
+                "r": ["r1", "r2"],
+            },
+            strict_level="warn",
+        )
+        self.substitutor = PlaceholderSubstitutor(self.context, mode="sample")
+
+    def test_count_expand_combinations_no_placeholder(self):
+        """プレースホルダーなしは 1"""
+        ast = [Text(value="only text")]
+        assert self.substitutor.count_expand_combinations(ast) == 1
+
+    def test_count_expand_combinations_only_sample(self):
+        """sample(:r) のみの場合は 1"""
+        ast = [Placeholder(name="r", mode="sample")]
+        assert self.substitutor.count_expand_combinations(ast) == 1
+
+    def test_count_expand_combinations_single_expand(self):
+        """expand が1つの場合"""
+        ast = [Placeholder(name="a")]  # mode=expand, 2候補
+        assert self.substitutor.count_expand_combinations(ast) == 2
+
+    def test_count_expand_combinations_product(self):
+        """expand が複数の場合は直積"""
+        ast = [
+            Placeholder(name="a"),  # 2
+            Text(value=" "),
+            Placeholder(name="b"),  # 3
+        ]
+        assert self.substitutor.count_expand_combinations(ast) == 2 * 3
+
+    def test_substitute_mixed_nth_zero(self):
+        """n=0 で最初の組み合わせ"""
+        ast = [Placeholder(name="a"), Text(value="-"), Placeholder(name="b")]
+        result = self.substitutor.substitute_mixed_nth(ast, 0, cycle=False)
+        assert len(result) == 3
+        assert result[0].value == "a1"
+        assert result[1].value == "-"
+        assert result[2].value == "b1"
+
+    def test_substitute_mixed_nth_cycle(self):
+        """cycle=True で n を剰余"""
+        ast = [Placeholder(name="a"), Placeholder(name="b")]  # 2*3=6
+        r0 = self.substitutor.substitute_mixed_nth(ast, 0, cycle=True)
+        r6 = self.substitutor.substitute_mixed_nth(ast, 6, cycle=True)
+        assert r0[0].value == r6[0].value == "a1"
+        assert r0[1].value == r6[1].value == "b1"
+
+    def test_substitute_mixed_nth_order_last_fastest(self):
+        """itertools.product と同じ順序（最後が最速）"""
+        ast = [Placeholder(name="a"), Placeholder(name="b")]
+        # a1b1, a1b2, a1b3, a2b1, a2b2, a2b3
+        seen = []
+        for n in range(6):
+            result = self.substitutor.substitute_mixed_nth(ast, n, cycle=False)
+            seen.append((result[0].value, result[1].value))
+        assert seen == [
+            ("a1", "b1"),
+            ("a1", "b2"),
+            ("a1", "b3"),
+            ("a2", "b1"),
+            ("a2", "b2"),
+            ("a2", "b3"),
+        ]
+
+    def test_substitute_mixed_nth_expand_and_sample(self):
+        """expand と sample(:r) の混在"""
+        ast = [
+            Placeholder(name="a"),  # expand
+            Text(value=" "),
+            Placeholder(name="r", mode="sample"),  # ランダム
+        ]
+        result = self.substitutor.substitute_mixed_nth(ast, 0, cycle=False)
+        assert len(result) == 3
+        assert result[0].value == "a1"
+        assert result[1].value == " "
+        assert result[2].value in ["r1", "r2"]
+
+    def test_substitute_mixed_nth_max_expansion_exceeded(self):
+        """直積が max_expansion を超えると RecursionLimitError"""
+        large = {f"x{i}": [f"v{j}" for j in range(20)] for i in range(2)}  # 400
+        self.context.placeholders.update(large)
+        self.substitutor = PlaceholderSubstitutor(self.context, mode="sample")
+        ast = [Placeholder(name="x0"), Placeholder(name="x1")]
+        with pytest.raises(RecursionLimitError, match="too large"):
+            self.substitutor.substitute_mixed_nth(ast, 0, cycle=True, max_expansion=128)

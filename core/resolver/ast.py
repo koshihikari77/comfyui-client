@@ -27,6 +27,7 @@ class PresetExpr(Node):
 class Placeholder(Node):
     """プレースホルダーノード"""
     name: str
+    mode: str = "expand"  # "expand" (直積) | "sample" (ランダム :r)
 
 
 class Wildcard(Node):

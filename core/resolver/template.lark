@@ -9,8 +9,9 @@ template: (text | preset | placeholder | wildcard)*
 // プリセット式
 preset: "<preset:" key_expr ">"
 
-// プレースホルダー
-placeholder: "{" NAME "}"
+// プレースホルダー（:r でランダムサンプル、省略時は直積expand）
+placeholder: "{" NAME (":" PLACEHOLDER_MODE)? "}"
+PLACEHOLDER_MODE: "r"
 
 // ワイルドカード（高優先度）
 wildcard: WILDCARD

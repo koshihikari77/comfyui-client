@@ -145,7 +145,8 @@ class TestSequenceJobExecutor:
         executor = SequenceJobExecutor(config, mock_service_container)
         
         template = 'test prompt with wildcard'
-        params = executor._build_params(template, iteration_index=0)
+        prompt_def = config.prompts[0] if config.prompts else type('PromptDef', (), {'template': template, 'params': None})()
+        params = executor._build_params(template, iteration_index=0, local_run_index=0, prompt_def=prompt_def)
         
         # パラメータが辞書として返されることを確認
         assert isinstance(params, dict)
@@ -529,8 +530,9 @@ class TestBaseExecutorMethods:
             assert combination.name == expected_name
         
         # パラメータ適用テスト（優先度確認）
+        prompt_def = config.prompts[0]
         # 1回目: high_quality組み合わせ
-        params = executor._build_params("test template", 0)
+        params = executor._build_params("test template", 0, 0, prompt_def)
         
         # パラメータ組み合わせの値が適用されているか確認
         assert params['220.width'] == 1024  # high_quality の width
@@ -538,7 +540,7 @@ class TestBaseExecutorMethods:
         assert params['54.model_weight_1'] == 0.8  # high_quality の model_weight_1
         
         # 2回目: artistic_portrait組み合わせ
-        params = executor._build_params("test template", 1)
+        params = executor._build_params("test template", 1, 1, prompt_def)
         assert params['220.width'] == 768   # artistic_portrait の width
         assert params['220.height'] == 1344  # artistic_portrait の height
         assert params['54.model_weight_1'] == 0.6  # artistic_portrait の model_weight_1
@@ -588,8 +590,8 @@ class TestBaseExecutorMethods:
         from core.config import Config
         config = Config(str(config_path), str(sample_connection_config))
         executor = SequenceJobExecutor(config, mock_service_container)
-        
-        params = executor._build_params("test template", 0)
+        prompt_def = config.prompts[0]
+        params = executor._build_params("test template", 0, 0, prompt_def)
         
         # 優先度確認
         assert params['220.width'] == 1024   # ParameterCombination が最優先

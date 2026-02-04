@@ -63,6 +63,12 @@ class IPromptResolver(ABC):
         """プレースホルダーの全組合せを生成"""
         pass
 
+    def resolve_nth(
+        self, template_string: str, n: int, cycle: bool = True, placeholders: dict | None = None
+    ) -> str:
+        """n 番目の直積組み合わせで解決（Sequence/dump 用）。未実装時は resolve にフォールバック。"""
+        return self.resolve_full(template_string, placeholders)
+
 
 class IServiceContainer(ABC):
     """サービスコンテナの抽象インターフェース"""

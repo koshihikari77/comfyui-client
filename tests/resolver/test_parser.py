@@ -63,6 +63,16 @@ class TestBasicParsing:
         assert len(ast) == 1
         assert isinstance(ast[0], Placeholder)
         assert ast[0].name == "emotion"
+        assert ast[0].mode == "expand"
+    
+    def test_placeholder_mode_r_parsing(self):
+        """プレースホルダー :r（ランダム）解析テスト"""
+        parser = TemplateParser()
+        ast = parser.parse("{emotion:r}")
+        assert len(ast) == 1
+        assert isinstance(ast[0], Placeholder)
+        assert ast[0].name == "emotion"
+        assert ast[0].mode == "sample"
     
     def test_wildcard_parsing(self):
         """ワイルドカード解析テスト"""
@@ -502,6 +512,7 @@ class TestValidation:
             "<preset:quality#base>",
             "<preset:quality#base+hdr>",
             "{emotion}",
+            "{emotion:r}",
             "__lighting__",
             "complex <preset:quality> {emotion} __lighting__",
             "text with_underscores",
