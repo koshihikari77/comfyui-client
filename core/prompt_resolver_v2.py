@@ -14,7 +14,7 @@ from .interfaces import IPromptResolver
 from .resolver.context import ResolverContext, PresetFile
 from .resolver.parser import TemplateParser
 from .resolver.preset import PresetEvaluator
-from .resolver.placeholder import PlaceholderSubstitutor
+from .resolver.placeholder import PlaceholderSubstitutor, expand_inline_placeholders
 from .resolver.wildcard import WildcardSubstitutor
 from .resolver.filter import TagFilter
 from .resolver.formatter import PromptFormatter
@@ -160,36 +160,46 @@ class PromptResolverV2(IPromptResolver):
         try:
             logger.debug(f"V2 resolving: '{template_string[:50]}...'")
             
-            # ① Parse
-            ast = self.parser.parse(template_string)
-            
-            # ② PresetEval (ネスト処理統合済み)
-            ast = self.preset_evaluator.evaluate_ast(ast)
-            
-            # ③ PresetSubst (統合によりスキップ)
-            # ast = self.preset_substitutor.substitute_ast(ast)
-            
-            # ④ Placeholder（混在: expand は n 番目、sample(:r) はランダム。n=0 で API 互換）
-            ast = self.placeholder_substitutor.substitute_mixed_nth(
-                ast, 0, cycle=True, max_expansion=self.context.placeholder_max_expansion
+            # ⓪ Inline placeholder 前処理 ({a | b | c} → {_inline_N})
+            original_ph = self.context.placeholders
+            local_ph = dict(original_ph)
+            template_string, local_ph, _ = expand_inline_placeholders(
+                template_string, local_ph
             )
-            
-            # ⑤ Wildcard
-            ast = self.wildcard_substitutor.substitute_ast(ast)
-            
-            # ⑥ Filter
-            tagset = self.tag_filter.filter_ast(ast)
-            
-            #TagSetが空の場合の処理（soft/warnレベル対応）
-            if not tagset:
-                logger.debug(f"Empty TagSet for template: '{template_string}', returning original")
-                return template_string
-            
-            # ⑦ Format
-            result = self.formatter.format_tagset(tagset)
-            
-            logger.debug(f"V2 resolved: '{result[:50]}...'")
-            return result
+            self.context.placeholders = local_ph
+            try:
+                # ① Parse
+                ast = self.parser.parse(template_string)
+                
+                # ② PresetEval (ネスト処理統合済み)
+                ast = self.preset_evaluator.evaluate_ast(ast)
+                
+                # ③ PresetSubst (統合によりスキップ)
+                # ast = self.preset_substitutor.substitute_ast(ast)
+                
+                # ④ Placeholder（混在: expand は n 番目、sample(:r) はランダム。n=0 で API 互換）
+                ast = self.placeholder_substitutor.substitute_mixed_nth(
+                    ast, 0, cycle=True, max_expansion=self.context.placeholder_max_expansion
+                )
+                
+                # ⑤ Wildcard
+                ast = self.wildcard_substitutor.substitute_ast(ast)
+                
+                # ⑥ Filter
+                tagset = self.tag_filter.filter_ast(ast)
+                
+                #TagSetが空の場合の処理（soft/warnレベル対応）
+                if not tagset:
+                    logger.debug(f"Empty TagSet for template: '{template_string}', returning original")
+                    return template_string
+                
+                # ⑦ Format
+                result = self.formatter.format_tagset(tagset)
+                
+                logger.debug(f"V2 resolved: '{result[:50]}...'")
+                return result
+            finally:
+                self.context.placeholders = original_ph
             
         except Exception as e:
             logger.error(f"V2 pipeline failed to resolve: '{template_string}'", exc_info=True)
@@ -221,6 +231,13 @@ class PromptResolverV2(IPromptResolver):
             if placeholders is not None:
                 self.context.placeholders = placeholders
             try:
+                # ⓪ Inline placeholder 前処理
+                local_ph = dict(self.context.placeholders)
+                template_string, local_ph, _ = expand_inline_placeholders(
+                    template_string, local_ph
+                )
+                self.context.placeholders = local_ph
+
                 ast = self.parser.parse(template_string)
                 ast = self.preset_evaluator.evaluate_ast(ast)
                 ast = self.placeholder_substitutor.substitute_mixed_nth(
@@ -232,8 +249,7 @@ class PromptResolverV2(IPromptResolver):
                     return template_string
                 return self.formatter.format_tagset(tagset)
             finally:
-                if placeholders is not None:
-                    self.context.placeholders = original
+                self.context.placeholders = original
         except Exception as e:
             logger.error(f"V2 resolve_nth failed: n={n} '{template_string}'", exc_info=True)
             return template_string

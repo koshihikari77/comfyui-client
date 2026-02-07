@@ -242,7 +242,7 @@ ComfyVの「プロンプト」は、単なる文字列ではなく、記法を�
 ### 5.1 記法一覧
 
 - **Preset**: `<preset:...>`
-- **Placeholder**: `{name}`（直積・デフォルト）/ `{name:r}`（ランダム）
+- **Placeholder**: `{name}`（直積・デフォルト）/ `{name:r}`（ランダム）/ `{a | b | c}`（インライン直積）/ `{a | b:r}`（インラインランダム）
 - **Wildcard**: `__name__`
 - **Constant**（Sequence前処理）: `%name%`
 - **Iterator**（Sequence前処理）: `$[name]`
@@ -255,9 +255,10 @@ Sequenceの場合:
 Template
   → Constant置換（%...%）
   → Iterator置換（$[...]）
+  → Inline placeholder 前処理（{a | b} → {_inline_N}）
   → Parse
   → Preset
-  → Placeholder
+  → Placeholder（外部参照 + インライン）
   → Wildcard
   → Filter（ignore_tags）
   → Format（locale）
@@ -285,19 +286,49 @@ GridSearchの場合:
 階層（ファイル階層を `/` で表現）:
 - `<preset:character/akira#base>`
 
-### 6.2 Placeholder（{name} / {name:r}）
+### 6.2 Placeholder（{name} / {name:r} / インライン）
 
 `placeholders:` に定義した値から置換します。**同一テンプレート内で expand と sample を混在できます。**
+
+#### 6.2.1 外部参照（placeholders: で定義）
 
 | 記法 | 意味 | 用途 |
 |------|------|------|
 | `{name}` | **直積（expand）** — 組み合わせ列の n 番目を順に使用 | Sequence では run ごとに 0, 1, 2, … 番目の組み合わせを順に適用 |
 | `{name:r}` | **ランダム（sample）** — 毎回ランダムに1つ選択 | 直積にしたくない slot だけ :r を付ける |
 
-**Sequence での runs の扱い**  
+#### 6.2.2 インライン記法（テンプレート内に直接記述）
+
+候補をテンプレート文字列の中に直接パイプ `|` 区切りで書けます。`placeholders:` での事前定義は不要です。
+
+| 記法 | 意味 | 例 |
+|------|------|-----|
+| `{a \| b \| c}` | **直積（expand）** — 外部参照と同様に直積展開 | `{from side \| pov \| from above}` |
+| `{a \| b \| c:r}` | **ランダム（sample）** — 毎回ランダムに1つ選択 | `{from side \| pov \| from above:r}` |
+| `{a \| b \| }` | **空選択肢あり** — 末尾パイプで「何も出さない」を含む | `{hand up \| }` → "hand up" or 空 |
+
+**判別ルール**: `{}` 内に `|` が含まれればインライン、なければ外部参照。
+
+**使い分け**:
+- 同じ候補リストを複数テンプレートで再利用 → 外部参照 `{name}`
+- 1箇所だけで使い捨て → インライン `{a | b | c}`
+
+```yaml
+# インラインの例
+scene_delta:
+  - pose: "{from side | pov | from above}, {standing | sitting}"
+    # → 3 x 2 = 6 通りの直積展開
+
+  - expression: "{smile | blush | closed eyes:r}"
+    # → 毎回ランダムに 1 つ選択
+```
+
+#### 6.2.3 Sequence での runs の扱い
+
 - `runs` は「そのシーンで生成する枚数」の**上限**です。  
 - expand の組み合わせ数（comboCount）が runs より少ない場合は **cycle** します（`run_index % comboCount` で n を決める）。  
 - 例: `{a}` が 2 候補・`{b}` が 3 候補 → comboCount=6。`runs: 10` なら 0〜5 番目を順に使い、6〜9 回目は 0〜3 番目を再度使用。
+- インラインの expand も外部参照と同じく直積に参加します。
 
 **直積上限（placeholder_max_expansion）**  
 - expand の組み合わせ数がこの値を超えるとエラーになります。  

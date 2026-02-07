@@ -7,7 +7,7 @@ o3アドバイスを反映したexpand/sampleモード実装
 
 import logging
 import re
-from typing import List, Literal, Union, Dict
+from typing import List, Literal, Tuple, Union, Dict
 from itertools import product, islice
 from copy import deepcopy
 
@@ -496,3 +496,71 @@ class PlaceholderSubstitutor:
         # 最大イテレーション到達時の警告
         logger.warning(f"Multi-stage reparse reached max iterations ({max_iterations}), stopping")
         return current_ast
+
+
+# ---------------------------------------------------------------------------
+# Inline placeholder 前処理
+# ---------------------------------------------------------------------------
+
+# {  (中身に | を含む、ネストした {} は不可)  }
+_INLINE_RE = re.compile(r'\{([^{}]*\|[^{}]*)\}')
+
+
+def expand_inline_placeholders(
+    template: str,
+    placeholders: Dict[str, List[str]],
+    counter_start: int = 0,
+) -> Tuple[str, Dict[str, List[str]], int]:
+    """テンプレート内の ``{a | b | c}`` / ``{a | b:r}`` をユニーク名の
+    プレースホルダーに置換し、候補リストを *placeholders* に追加して返す。
+
+    * ``|`` が含まれればインライン、なければ外部参照として扱う。
+    * 末尾 ``:r`` が付いていれば sample モード、なければ expand（デフォルト）。
+    * 末尾パイプ ``{a | b | }`` で空選択肢を追加できる。
+
+    Returns:
+        ``(置換後テンプレート, 更新された placeholders dict, 次の counter 値)``
+    """
+    # finditer は左→右順に返すが、replace で文字列長が変わるため
+    # 一旦すべて収集してから後ろから置換する。
+    matches = list(_INLINE_RE.finditer(template))
+    if not matches:
+        return template, placeholders, counter_start
+
+    updated = dict(placeholders)
+    counter = counter_start
+    # 後ろのマッチから置換してオフセットずれを回避
+    replacements: List[Tuple[int, int, str]] = []  # (start, end, replacement)
+
+    for match in matches:
+        raw = match.group(1)
+
+        # 末尾の :r を検出してモード判定
+        mode_suffix = ""
+        body = raw
+        stripped = raw.rstrip()
+        if stripped.endswith(':r'):
+            mode_suffix = ":r"
+            body = stripped[:-2]
+
+        parts = body.split('|')
+        candidates = [p.strip() for p in parts]
+
+        # 末尾が空文字 → 空選択肢として保持
+        has_empty = body.rstrip().endswith('|') or (candidates and candidates[-1] == '')
+        candidates = [c for c in candidates if c != '']
+        if has_empty:
+            candidates.append('')
+
+        name = f"_inline_{counter}"
+        counter += 1
+        updated[name] = candidates
+        replacement = f"{{{name}{mode_suffix}}}"
+        replacements.append((match.start(), match.end(), replacement))
+
+    # 後ろから置換
+    result = template
+    for start, end, repl in reversed(replacements):
+        result = result[:start] + repl + result[end:]
+
+    return result, updated, counter
