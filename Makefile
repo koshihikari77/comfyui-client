@@ -82,15 +82,15 @@ test-executors: install-test
 	@echo "🧪 Running executor tests with uv..."
 	uv run pytest tests/test_executors.py -v
 
-# 実際のComfyUI統合テスト（テストモード使用）
+# ComfyV CLI統合テスト（テストモード使用）
 test-main: install-test
 	@echo "🧪 Running main integration tests with uv..."
 	uv run pytest tests/integration/test_main_integration.py -v
 
-# 実際にmain.pyを実行（テストモード）
+# 実際にcomfyvを実行（テストモード）
 run-test: install
 	@echo "🚀 Running ComfyV in test mode with uv..."
-	uv run python main.py --job-config configs/jobs/test.yaml --test-mode --verbose
+	uv run comfyv run configs/jobs/test.yaml --test-mode --verbose
 
 # テスト成果物のクリーンアップ
 clean:

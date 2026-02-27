@@ -153,7 +153,7 @@
 ```mermaid
 graph TB
     subgraph "User Layer"
-        User[User/main.py]
+        User[User/comfyv CLI]
         Config[config.yaml]
     end
     
@@ -210,7 +210,7 @@ graph TB
 
 ```mermaid
 flowchart TD
-    Start[main.py起動] --> LoadConfig[config.yaml読み込み]
+    Start[comfyv起動] --> LoadConfig[config.yaml読み込み]
     LoadConfig --> CreateContainer[ServiceContainer作成]
     CreateContainer --> SelectExecutor{job_type判定}
     
@@ -247,7 +247,7 @@ flowchart TD
 
 ```
 comfyv/
-├── main.py                    # エントリーポイント
+├── core/cli.py                # エントリーポイント（comfyv）
 ├── core/
 │   ├── config.py              # 設定管理
 │   ├── database.py            # DB管理
@@ -407,7 +407,7 @@ variables:
 
 ```bash
 # 設定ファイルを指定して実行
-uv run python main.py --config configs/grid_search_lora_test.yaml
+uv run comfyv run configs/grid_search_lora_test.yaml
 ```
 
 #### 3.1.3 SequenceExecutor
@@ -517,7 +517,7 @@ prompts:
 
 ```bash
 # 設定ファイルを指定して実行
-uv run python main.py --config configs/sequence_character_test.yaml
+uv run comfyv run configs/sequence_character_test.yaml
 ```
 
 #### 3.1.4 Executor拡張ガイド
@@ -544,10 +544,10 @@ class MyCustomExecutor(BaseExecutor):
         self.db.complete_job(job_id)
 ```
 
-##### ステップ2: main.pyに登録
+##### ステップ2: CLIエントリーポイントに登録
 
 ```python
-# main.py
+# core/cli.py
 from core.executors.my_custom_executor import MyCustomExecutor
 
 def create_executor(config, container):
@@ -2129,7 +2129,7 @@ executor = GridSearchExecutor(config, container)
 
 **CLI**:
 ```bash
-python main.py --job-config "configs/jobs/xxx.yaml" --dump-prompts "out.txt"
+uv run comfyv dump-prompts "configs/jobs/xxx.yaml" -o "out.txt"
 ```
 
 ---
@@ -2142,13 +2142,13 @@ python main.py --job-config "configs/jobs/xxx.yaml" --dump-prompts "out.txt"
 **CLI**:
 ```bash
 # index 指定
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "0,2"
 
 # ID 指定
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
 
 # 範囲指定（両端含む）
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "3-7"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "3-7"
 ```
 
 **制約**:

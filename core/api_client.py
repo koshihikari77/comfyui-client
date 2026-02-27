@@ -6,6 +6,8 @@ import urllib.parse
 import urllib.error
 from typing import Optional
 import logging
+import sys
+import os
 from .interfaces import IAPIClient
 
 logger = logging.getLogger(__name__)
@@ -123,8 +125,15 @@ class ComfyUI_APIClient(IAPIClient):
                 
                 # 進行状況の表示（任意）
                 elif message_type == 'progress':
+                    if os.getenv("COMFYV_QUIET"):
+                        continue
                     data = message.get('data', {})
-                    print(f"\r  Progress: {data.get('value', 0)} / {data.get('max', 0)} steps", end="", flush=True)
+                    print(
+                        f"\r  Progress: {data.get('value', 0)} / {data.get('max', 0)} steps",
+                        end="",
+                        flush=True,
+                        file=sys.stderr,
+                    )
 
         except websocket.WebSocketTimeoutException:
             logger.error("\n❌ WebSocket connection timed out.")
@@ -134,6 +143,7 @@ class ComfyUI_APIClient(IAPIClient):
             raise # エラーを再送出
         finally:
             # 完了時にプログレス表示をクリアするための改行
-            print("\r" + " " * 60 + "\r", end="") 
+            if not os.getenv("COMFYV_QUIET"):
+                print("\r" + " " * 60 + "\r", end="", file=sys.stderr)
             ws.close()
             logger.debug("WebSocket connection closed.")

@@ -35,7 +35,7 @@ make test-fast
 make run-test
 
 # または直接
-uv run python main.py --job-config configs/jobs/test.yaml --test-mode --verbose
+uv run comfyv run configs/jobs/test.yaml --test-mode --verbose
 ```
 
 ## 📦 依存関係管理

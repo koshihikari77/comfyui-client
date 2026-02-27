@@ -6,8 +6,17 @@ from .prompt_resolver_v2 import PromptResolverV2
 from .config import Config
 import logging
 import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_prompts_dir() -> str:
+    env_path = os.getenv("PROMPTS_CONFIG_DIR")
+    if env_path:
+        return str(Path(env_path).expanduser().resolve())
+    project_root = Path(__file__).resolve().parent.parent
+    return str((project_root / "configs/prompts").resolve())
 
 class ServiceContainer(IServiceContainer):
     """依存関係を管理するサービスコンテナ"""
@@ -61,18 +70,18 @@ class ServiceContainer(IServiceContainer):
                     'strict_level': self.config.strict_level,
                     'seed': self.config.seed
                 }
-                self._prompt_resolver = PromptResolverV2("configs/prompts", v2_config)
+                self._prompt_resolver = PromptResolverV2(_resolve_prompts_dir(), v2_config)
                 logger.info("🚀 PromptResolverV2 pipeline enabled")
             else:
                 logger.debug("Creating PromptResolver (V1) instance")
-                self._prompt_resolver = PromptResolver("configs/prompts")
+                self._prompt_resolver = PromptResolver(_resolve_prompts_dir())
                 logger.info("📊 PromptResolver V1 (legacy) mode")
                 
         return self._prompt_resolver
     
     def get_prompt_resolver_v1(self) -> PromptResolver:
         """明示的にV1 PromptResolverを取得"""
-        return PromptResolver("configs/prompts")
+        return PromptResolver(_resolve_prompts_dir())
     
     def get_prompt_resolver_v2(self, config: dict = None) -> PromptResolverV2:
         """明示的にV2 PromptResolverを取得"""
@@ -84,4 +93,4 @@ class ServiceContainer(IServiceContainer):
             'strict_level': self.config.strict_level,
             'seed': self.config.seed
         }
-        return PromptResolverV2("configs/prompts", v2_config)
+        return PromptResolverV2(_resolve_prompts_dir(), v2_config)

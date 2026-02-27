@@ -12,7 +12,7 @@ tests/
 ├── test_executors.py        # Executorクラスのテスト
 ├── integration/             # 統合テスト
 │   ├── __init__.py
-│   └── test_main_integration.py  # main.pyの統合テスト
+│   └── test_main_integration.py  # comfyv CLI の統合テスト
 └── README.md               # このファイル
 ```
 
@@ -24,7 +24,7 @@ tests/
 - **test_executors.py**: GridSearchExecutor, SequenceExecutorの機能テスト
 
 ### 統合テスト
-- **test_main_integration.py**: main.pyを通じたエンドツーエンドテスト
+- **test_main_integration.py**: `comfyv` CLIを通じたエンドツーエンドテスト
 
 ## テスト実行方法
 
