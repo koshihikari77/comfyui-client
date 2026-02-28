@@ -10,7 +10,7 @@
 ComfyVは通常、次の2ファイルを読みます。
 
 - **接続設定**: `configs/connection_config.yaml`
-- **ジョブ設定**: `configs/jobs/*.yaml`（任意のパスを `--job-config` で指定）
+- **ジョブ設定**: `configs/jobs/*.yaml`（`comfyv run <job_config.yaml>` の位置引数で指定）
 
 ### 1.1 接続設定（connection_config.yaml）
 
@@ -503,24 +503,24 @@ scene_delta:
 
 ```bash
 # index 指定
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "0,2"
 
 # ID 指定
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "base_sitting,teasing_chest_show"
 
 # 範囲指定（両端含む）
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "3-7"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "3-7"
 
 # ここから最後まで（開始のみ）
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "6-"
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "base_sitting-"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "6-"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "base_sitting-"
 
 # 先頭からここまで（終了のみ）
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "-6"
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "-base_sitting"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "-6"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "-base_sitting"
 
 # 複合指定
-python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2,base_sitting,5-12"
+uv run comfyv run "configs/jobs/xxx.yaml" --scenes "0,2,base_sitting,5-12"
 ```
 
 **注意**:
@@ -542,4 +542,3 @@ python main.py --job-config "configs/jobs/xxx.yaml" --scenes "0,2,base_sitting,5
 
 - **PromptResolver設定（ignore_tags / ignore_groups / locale / strict_level / seed）**は、ジョブYAMLに書いても実行時に反映されない場合があります（DI側が `Config` プロパティを参照するため）。
 - **node_id をノード名で書く（例: `"VAEデコード"`）**は設計思想として存在し、WorkflowLoaderも対応していますが、Pydanticスキーマが `int` 前提のため、ジョブYAMLの多くの箇所は現状 **数値ID推奨**です。
-

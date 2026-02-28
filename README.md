@@ -35,7 +35,7 @@ make test
 
 ```
 comfyv/
-├── main.py                    # エントリーポイント
+├── core/cli.py                # CLIエントリーポイント（comfyv）
 ├── core/                      # コアモジュール
 │   ├── config.py             # 設定管理
 │   ├── database.py           # データベース操作
@@ -66,10 +66,10 @@ comfyv/
 
 ```bash
 # グリッドサーチジョブを実行
-python main.py --job-config configs/jobs/example.yaml
+uv run comfyv run configs/jobs/example.yaml
 
 # テストモードで実行（ComfyUIサーバー不要）
-python main.py --job-config configs/jobs/test.yaml --test-mode --verbose
+uv run comfyv run configs/jobs/test.yaml --test-mode --verbose
 ```
 
 ### 設定ファイル例
