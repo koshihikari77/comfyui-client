@@ -3,6 +3,7 @@ import json
 import os
 import copy
 import logging
+import re
 from pathlib import Path
 
 from ..config import Config
@@ -11,6 +12,12 @@ from ..reporting import Reporter
 from ..workflow_loader import WorkflowLoader
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_filename_component(value: str) -> str:
+    """ファイル名に使えない文字を安全な区切りに置き換える。"""
+    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value).strip(" .")
+    return sanitized or "scene"
 
 class BaseExecutor(abc.ABC):
     def __init__(self, config: Config, service_container: IServiceContainer):
@@ -148,7 +155,13 @@ class BaseExecutor(abc.ABC):
         
         return results
 
-    def _execute_single_run(self, job_id: int, workflow: dict, params: dict):
+    def _execute_single_run(
+        self,
+        job_id: int,
+        workflow: dict,
+        params: dict,
+        scene_id: str | None = None,
+    ):
         """1回の画像生成を実行し、結果をDBに保存する"""
         # DBに保存するworkflowは、パラメータ適用後のもの
         # parametersも保存して完全な再現性を確保（設計書要件）
@@ -163,12 +176,20 @@ class BaseExecutor(abc.ABC):
                 raise RuntimeError("Failed to get generated image from history.")
 
             _, image_data = result
-            
-            image_save_path = self.results_images_dir / f"{image_id:08d}.png"
+
+            safe_scene_id = (
+                _sanitize_filename_component(scene_id) if scene_id is not None else None
+            )
+            filename = (
+                f"{safe_scene_id}_{image_id:08d}.png"
+                if safe_scene_id
+                else f"{image_id:08d}.png"
+            )
+            image_save_path = self.results_images_dir / filename
             with open(image_save_path, "wb") as f:
                 f.write(image_data)
-                
-            db_filepath = os.path.join('results', 'images', f"{image_id:08d}.png")
+
+            db_filepath = os.path.join('results', 'images', filename)
             self.db.update_image_record(image_id, db_filepath, 'success')
             return True
 

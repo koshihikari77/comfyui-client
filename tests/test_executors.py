@@ -213,6 +213,24 @@ class TestBaseExecutorMethods:
         # 画像レコードが正しく更新されているか確認
         assert len(db.images) == 1
         assert db.images[1]['status'] == 'success'
+
+    def test_execute_single_run_uses_scene_id_prefix(self, config_instance, mock_service_container):
+        """scene_id がある場合は保存ファイル名の prefix に使われる"""
+        executor = GridSearchJobExecutor(config_instance, mock_service_container)
+
+        db = mock_service_container.get_database_manager()
+        job_id = db.create_job("test_job", {})
+
+        with patch('builtins.open', MagicMock()):
+            result = executor._execute_single_run(
+                job_id,
+                {"test": "workflow"},
+                {},
+                scene_id="intro/scene:01",
+            )
+
+        assert result is True
+        assert db.images[1]['filepath'] == "results/images/intro_scene_01_00000001.png"
     
     def test_prepare_workflow_missing_node(self, config_instance, mock_service_container):
         """存在しないノードIDでのワークフロー準備テスト"""
@@ -226,6 +244,52 @@ class TestBaseExecutorMethods:
         
         # 元のワークフローが返される
         assert prepared_workflow["1"]["inputs"]["test_param"] == "default_value" 
+
+    def test_sequence_run_uses_scene_id_prefix(self, temp_config_dir, sample_connection_config, mock_service_container):
+        """scene_delta 由来の scene_id が sequence 保存名の prefix に反映される"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+        workflows_dir = temp_config_dir / 'workflows'
+        workflows_dir.mkdir()
+
+        config_data = {
+            'job_name': 'sequence_scene_prefix_test',
+            'job_type': 'sequence',
+            'base_workflow': 'workflows/test_sequence.json',
+            'prompt_target': {'node_id': 1, 'input_name': 'text'},
+            'prompt_template': {
+                'order': ['subject', 'action'],
+                'slots': {
+                    'subject': '1girl',
+                    'action': 'standing',
+                }
+            },
+            'scene_delta': [
+                {'_id': '00_intro/festival', 'action': 'smile'},
+                {'_id': '01_pose', 'action': 'wave'},
+            ]
+        }
+
+        config_path = jobs_dir / 'sequence_scene_prefix_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            import yaml
+            yaml.dump(config_data, f, default_flow_style=False)
+
+        workflow_data = {"1": {"inputs": {"text": "default"}, "class_type": "TestNode"}}
+        workflow_path = workflows_dir / 'test_sequence.json'
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f)
+
+        from core.config import Config
+        config = Config(str(config_path), str(sample_connection_config))
+        executor = SequenceJobExecutor(config, mock_service_container)
+
+        with patch('builtins.open', MagicMock()):
+            executor.run()
+
+        db = mock_service_container.get_database_manager()
+        assert db.images[1]['filepath'] == "results/images/00_intro_festival_00000001.png"
+        assert db.images[2]['filepath'] == "results/images/01_pose_00000002.png"
     
     def test_sequence_executor_with_new_prompt_format(self, temp_config_dir, sample_connection_config, mock_service_container):
         """SequenceExecutorの新プロンプト形式（List[str]）対応テスト"""

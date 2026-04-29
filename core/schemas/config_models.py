@@ -171,6 +171,7 @@ class PromptModel(BaseModel):
     template: str = Field(..., min_length=1, description="プロンプトテンプレート")
     runs: Optional[int] = Field(None, description="実行回数")
     name: Optional[str] = Field(None, description="プロンプト名")
+    scene_id: Optional[str] = Field(None, description="scene_delta由来のシーンID")
     params: Optional[List[SceneParamItemModel]] = Field(default=None, description="scene_delta由来のワークフローパラメータ（set→以後継承）")
 
 

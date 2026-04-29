@@ -277,6 +277,7 @@ def _compile_delta_items(
         
         flat_tags = _flatten_state_to_tags(current_state, order, current_visibility)
         prompt_item = {'template': ', '.join(flat_tags)}
+        prompt_item['scene_id'] = str(item_id)
         if runs is not None:
             prompt_item['runs'] = runs
         if name is not None:

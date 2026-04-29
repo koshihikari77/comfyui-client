@@ -46,7 +46,12 @@ class SequenceJobExecutor(BaseExecutor):
                     # iteration_index=グローバル run 番号, i=シーン内ローカル run 番号（resolve_nth 用）
                     params = self._build_params(processed_template, run_counter - 1, i, prompt_def)
                     workflow = self._prepare_workflow(params)
-                    self._execute_single_run(job_id, workflow, params)
+                    self._execute_single_run(
+                        job_id,
+                        workflow,
+                        params,
+                        scene_id=getattr(prompt_def, "scene_id", None),
+                    )
 
             self.db.complete_job(job_id)
             # self._generate_report(job_id) # シーケンスジョブでは不要かもしれない

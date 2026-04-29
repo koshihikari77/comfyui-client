@@ -265,6 +265,41 @@ class TestConfig:
                 job_config_path=str(config_path),
                 connection_config_path=str(sample_connection_config)
             )
+
+    def test_scene_delta_compiles_scene_id_into_prompts(self, temp_config_dir, sample_connection_config):
+        """scene_delta の _id が prompt の scene_id として保持されること"""
+        jobs_dir = temp_config_dir / 'jobs'
+        jobs_dir.mkdir()
+
+        config_data = {
+            'job_name': 'scene_delta_scene_id_test',
+            'job_type': 'sequence',
+            'default_runs': 1,
+            'prompt_template': {
+                'order': ['subject', 'action'],
+                'slots': {
+                    'subject': '1girl',
+                    'action': 'standing',
+                }
+            },
+            'scene_delta': [
+                {'_id': 'intro_scene', 'action': 'smile'},
+                {'action': 'running'},
+            ],
+        }
+
+        config_path = jobs_dir / 'scene_delta_scene_id_test.yaml'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+
+        config = Config(
+            job_config_path=str(config_path),
+            connection_config_path=str(sample_connection_config)
+        )
+
+        assert len(config.prompts) == 2
+        assert config.prompts[0].scene_id == 'intro_scene'
+        assert config.prompts[1].scene_id == '1'
     
     def test_invalid_prompt_format(self, temp_config_dir, sample_connection_config):
         """無効なプロンプト形式のエラーテスト"""
