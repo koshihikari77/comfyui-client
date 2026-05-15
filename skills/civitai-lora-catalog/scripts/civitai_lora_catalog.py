@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ DEFAULT_OUTPUT = Path("workspace/lora_catalog/civitai_loras.yaml")
 DEFAULT_JSONL_OUTPUT = Path("workspace/lora_catalog/civitai_loras.jsonl")
 DEFAULT_RAW_OUTPUT = Path("workspace/lora_catalog/civitai_loras.raw_versions.yaml")
 DEFAULT_RAW_JSONL_OUTPUT = Path("workspace/lora_catalog/civitai_loras.raw_versions.jsonl")
+DEFAULT_DOWNLOAD_DIR = Path("workspace/lora_catalog/downloads")
 
 
 @dataclass(frozen=True)
@@ -338,6 +340,93 @@ def write_catalog(catalog: dict[str, Any], output: Path, jsonl_output: Path | No
         jsonl_output.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest().upper()
+
+
+def _download_file(
+    session: requests.Session,
+    item: dict[str, Any],
+    *,
+    token: str | None,
+    output_dir: Path,
+    skip_existing: bool = True,
+) -> str:
+    file_name = item.get("file_name")
+    download_url = item.get("download_url")
+    if not file_name or not download_url:
+        return "skipped:no-file"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / str(file_name)
+    expected_sha256 = ((item.get("hashes") or {}).get("SHA256") or "").upper()
+
+    if skip_existing and output_path.exists() and output_path.stat().st_size > 0:
+        if not expected_sha256 or _sha256(output_path) == expected_sha256:
+            return "skipped:exists"
+        output_path.unlink()
+
+    headers = {
+        "Accept": "application/octet-stream",
+        "User-Agent": "comfyv-lora-catalog/1.0",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    tmp_path = output_path.with_suffix(output_path.suffix + ".part")
+    if tmp_path.exists():
+        tmp_path.unlink()
+
+    with session.get(str(download_url), headers=headers, stream=True, timeout=120) as response:
+        if response.status_code >= 400:
+            raise CivitaiCatalogError(
+                f"download failed: {download_url} {response.status_code} {response.text[:500]}"
+            )
+        with tmp_path.open("wb") as handle:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    handle.write(chunk)
+
+    if expected_sha256:
+        actual = _sha256(tmp_path)
+        if actual != expected_sha256:
+            tmp_path.unlink(missing_ok=True)
+            raise CivitaiCatalogError(
+                f"SHA256 mismatch for {file_name}: expected {expected_sha256}, got {actual}"
+            )
+
+    tmp_path.replace(output_path)
+    return "downloaded"
+
+
+def download_catalog(args: argparse.Namespace) -> dict[str, int]:
+    token = args.token or os.getenv("CIVITAI_API_TOKEN")
+    catalog_path = Path(args.download_catalog)
+    data = yaml.safe_load(catalog_path.read_text(encoding="utf-8"))
+    items = data.get("items") or []
+    session = requests.Session()
+    counts: dict[str, int] = {}
+
+    for index, item in enumerate(items, start=1):
+        file_name = item.get("file_name") or f"item-{index}"
+        print(f"[{index}/{len(items)}] {file_name}", file=sys.stderr)
+        status = _download_file(
+            session,
+            item,
+            token=token,
+            output_dir=args.download_dir,
+            skip_existing=not args.force_download,
+        )
+        counts[status] = counts.get(status, 0) + 1
+        print(f"  {status}", file=sys.stderr)
+
+    return counts
+
+
 def build_catalog(args: argparse.Namespace) -> dict[str, Any]:
     token = args.token or os.getenv("CIVITAI_API_TOKEN")
     session = requests.Session()
@@ -402,11 +491,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="各 model の全 modelVersions を version 単位で出力する",
     )
+    parser.add_argument("--download-catalog", type=Path, help="指定 YAML catalog の items を download する")
+    parser.add_argument("--download-dir", type=Path, default=DEFAULT_DOWNLOAD_DIR, help="download 先ディレクトリ")
+    parser.add_argument("--force-download", action="store_true", help="既存ファイルも再downloadする")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.download_catalog:
+        try:
+            counts = download_catalog(args)
+        except CivitaiCatalogError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(counts, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+        return 0
+
     if args.all_versions:
         if args.output == DEFAULT_OUTPUT:
             args.output = DEFAULT_RAW_OUTPUT
