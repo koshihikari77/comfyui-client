@@ -20,7 +20,11 @@ class IDatabaseManager(ABC):
     @abstractmethod
     def update_image_record(self, image_id: int, filepath: str, status: str):
         pass
-    
+
+    @abstractmethod
+    def update_image_tags(self, image_id: int, tags: List[str], model: str = None):
+        pass
+
     @abstractmethod
     def get_images_by_job_id(self, job_id: int) -> List[sqlite3.Row]:
         pass

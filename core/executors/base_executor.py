@@ -191,12 +191,43 @@ class BaseExecutor(abc.ABC):
 
             db_filepath = os.path.join('results', 'images', filename)
             self.db.update_image_record(image_id, db_filepath, 'success')
+            self._save_wd14_tags(prompt_id, image_id)
             return True
 
         except Exception as e:
             self.db.update_image_record(image_id, None, 'failed')
             logger.error(f"Single run failed for image_id {image_id}", exc_info=True)
             return False
+
+    # base.json の ShowText|pysssss ノード ID。WD14Tagger の出力を受ける。
+    # 別 workflow を使う場合は config 化する（現状は固定）。
+    WD14_SHOWTEXT_NODE_ID = "367"
+    WD14_MODEL_NAME = "wd-vit-tagger-v3"
+
+    def _save_wd14_tags(self, prompt_id: str, image_id: int) -> None:
+        """ComfyUI history から WD14Tagger 出力を取り、images.tags_json に保存する。
+        ノードが存在しない / タグ取得失敗時は warning だけ出して握りつぶす。
+        """
+        try:
+            tags_text = self.api.get_node_text_output(
+                prompt_id, self.WD14_SHOWTEXT_NODE_ID
+            )
+        except Exception:
+            logger.warning(
+                f"WD14 tags fetch failed for image_id {image_id}", exc_info=True
+            )
+            return
+
+        if not tags_text:
+            return
+
+        tags = [t.strip() for t in tags_text.split(",") if t.strip()]
+        try:
+            self.db.update_image_tags(image_id, tags, model=self.WD14_MODEL_NAME)
+        except Exception:
+            logger.warning(
+                f"WD14 tags DB write failed for image_id {image_id}", exc_info=True
+            )
 
     @abc.abstractmethod
     def run(self):

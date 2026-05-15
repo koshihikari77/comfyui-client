@@ -77,7 +77,7 @@ class ComfyUI_APIClient(IAPIClient):
         history = self.get_history(prompt_id)
         if not history or prompt_id not in history:
             return None
-        
+
         prompt_output = history[prompt_id]['outputs']
         for node_id in prompt_output:
             node_output = prompt_output[node_id]
@@ -85,6 +85,25 @@ class ComfyUI_APIClient(IAPIClient):
                 image = node_output['images'][0]
                 image_data = self.get_image_data(image['filename'], image['subfolder'], image['type'])
                 return image['filename'], image_data
+        return None
+
+    def get_node_text_output(self, prompt_id: str, node_id: str) -> Optional[str]:
+        """history.outputs[node_id].text[0] を取得する。
+        ShowText|pysssss / WD14Tagger|pysssss などの text/tags 出力ノード用。
+        ノードや出力が存在しない場合は None を返す（呼び出し側で握りつぶしてよい）。
+        """
+        history = self.get_history(prompt_id)
+        if not history or prompt_id not in history:
+            return None
+        outputs = history[prompt_id].get('outputs', {})
+        node_out = outputs.get(str(node_id), {})
+        # ShowText|pysssss は "text" キー、WD14Tagger|pysssss は "tags" キーで返ることがある
+        for key in ("text", "tags"):
+            value = node_out.get(key)
+            if isinstance(value, list) and value:
+                return value[0]
+            if isinstance(value, str):
+                return value
         return None
 
     def wait_for_completion(self, prompt_id: str):

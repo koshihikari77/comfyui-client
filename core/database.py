@@ -42,7 +42,11 @@ class DatabaseManager(IDatabaseManager):
         if 'parameters' not in columns:
             cursor.execute("ALTER TABLE images ADD COLUMN parameters TEXT")
             self.conn.commit()
-        
+        # tags_json 列のマイグレーション (WD14Tagger 出力用、JSON 文字列で保存)
+        if 'tags_json' not in columns:
+            cursor.execute("ALTER TABLE images ADD COLUMN tags_json TEXT")
+            self.conn.commit()
+
         self.conn.commit()
 
     def create_job(self, job_name: str, config_data: dict) -> int:
@@ -85,6 +89,19 @@ class DatabaseManager(IDatabaseManager):
     def update_image_record(self, image_id: int, filepath: str, status: str):
         cursor = self.conn.cursor()
         cursor.execute("UPDATE images SET filepath = ?, status = ? WHERE id = ?", (filepath, status, image_id))
+        self.conn.commit()
+
+    def update_image_tags(self, image_id: int, tags: list[str], model: str = None):
+        """WD14Tagger の出力タグを images.tags_json に保存する。
+        tags: タグ文字列のリスト (例: ["1girl", "long hair", ...])
+        model: 使用したタガーモデル名 (例: "wd-vit-tagger-v3")
+        """
+        cursor = self.conn.cursor()
+        payload = {"model": model, "tags": list(tags)} if model else {"tags": list(tags)}
+        cursor.execute(
+            "UPDATE images SET tags_json = ? WHERE id = ?",
+            (json.dumps(payload, ensure_ascii=False), image_id),
+        )
         self.conn.commit()
         
     def get_images_by_job_id(self, job_id: int) -> list[sqlite3.Row]:

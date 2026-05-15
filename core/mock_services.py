@@ -56,7 +56,12 @@ class MockDatabaseManager(IDatabaseManager):
             self.images[image_id]['filepath'] = filepath
             self.images[image_id]['status'] = status
         logger.debug(f"Mock: Updated image {image_id} to {status}")
-    
+
+    def update_image_tags(self, image_id: int, tags: List[str], model: str = None):
+        if image_id in self.images:
+            self.images[image_id]['tags_json'] = {"model": model, "tags": list(tags)}
+        logger.debug(f"Mock: Tagged image {image_id} with {len(tags)} tags")
+
     def get_images_by_job_id(self, job_id: int) -> List[dict]:
         # Note: 実際のsqlite3.Rowの代わりに辞書を返す
         return [img for img in self.images.values() if img['job_id'] == job_id and img['status'] == 'success']
