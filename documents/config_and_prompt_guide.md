@@ -323,7 +323,30 @@ scene_delta:
     # → 毎回ランダムに 1 つ選択
 ```
 
-#### 6.2.3 Sequence での runs の扱い
+#### 6.2.3 ネスト（再パース）
+
+Placeholder の値に `{name}` / `{name:r}` / `{a | b:r}` などのテンプレート構文が含まれている場合、**自動的に再パース**されて展開されます（最大15段）。`<preset:...>` や `__wildcard__` も同様に再パースされます。
+
+これにより、placeholder 値の中にインライン placeholder を埋め込む**ネスト記法**が使えます。
+
+```yaml
+# 例: ベース色ごとに異なる装飾候補をインラインで持たせる
+placeholders:
+  color_scheme:
+    - "black bra, black panties, {lace bra, (white trim:1.3) | (red trim:1.3):r}"
+    - "white bra, white panties, {bow panties, pink bow | (pink trim:1.3):r}"
+    - "red bra, red panties, {bow panties, white bow | (black trim:1.3):r}"
+```
+
+`{color_scheme:r}` を使うと、まずベース色がランダムに選ばれ、次にその値の中のインライン `{...:r}` が再パースされて装飾がランダムに選ばれます。
+
+**制約**:
+- 再パース深度は最大 20（`MAX_DEPTH`）
+- 多段イテレーションは最大 15 回
+- `{` `}` のネスト（`{{...}}`）は不可。インライン `{a | b}` の中にさらに `{c | d}` は書けない
+- 外部参照 `{name}` やインライン `{a | b}` を placeholder 値の**文字列として**含める形でネストする
+
+#### 6.2.4 Sequence での runs の扱い
 
 - `runs` は「そのシーンで生成する枚数」の**上限**です。  
 - expand の組み合わせ数（comboCount）が runs より少ない場合は **cycle** します（`run_index % comboCount` で n を決める）。  

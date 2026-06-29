@@ -79,6 +79,61 @@ uv run comfyv run job.yaml --scenes "3-7"            # 範囲
 uv run comfyv run job.yaml --scenes "6-"             # 6から最後まで
 ```
 
+## 罠と回避策 (案件で踏みやすいやつ)
+
+### `_add` の累積継承
+
+`_add` で追加した値は **次 scene 以降にも残る** (差分ではなく累積)。
+
+```yaml
+# ❌ scene 24 で body に "spread pussy" を _add すると、25 以降全 scene の body に残る
+scene_delta:
+  - _id: "24_xxx"
+    _add: { body: ["spread pussy", "long labia"] }
+  - _id: "25_xxx"
+    pose: "..."   # ← ここの body にも "spread pussy" が乗ったまま
+```
+
+**回避**: body に scene 固有の tag を入れる場合は **`_add` ではなく slot を直接上書き**:
+
+```yaml
+# ✅ scene 24 の body だけに反映、次 scene には影響しない
+scene_delta:
+  - _id: "24_xxx"
+    body: ["%char_body%", "spread pussy", "long labia"]
+  - _id: "25_xxx"
+    pose: "..."   # body はデフォルト (%char_body%) に戻る
+```
+
+過去案件 `20260509_フレン娼館踊り子` で scene 24 の _add 1 箇所が全 35 scene に累積し `spread pussy` が dump で 280 回出た。dump 重複検出で気付いた。
+
+### `%xxx%` と `{xxx:r}` の構文混同
+
+- `%xxx%` は **constants 専用** (全要素を連結展開)
+- `{xxx:r}` は **placeholders 専用** (要素から 1 つ random pick)
+
+```yaml
+# ❌ placeholders 定義を %xxx% で参照すると、リテラル文字列のまま prompt に残る
+placeholders:
+  sex_motion_effect_intense:
+    - "(motion lines:1.4)"
+    - "(sound effects:1.3)"
+scene_delta:
+  - _id: "xxx"
+    effect: ["%sex_motion_effect_intense%"]   # ← "%sex_motion_effect_intense%" が文字列のまま prompt に出る
+```
+
+**意図する挙動別の使い分け**:
+
+| やりたいこと | 定義場所 | 参照記法 |
+|---|---|---|
+| 効果プール全展開 (motion + sound + speed + impact 全部出す) | `constants` | `%name%` |
+| バリエーション 1 つランダム (表情 1 つだけ pick) | `placeholders` | `{name:r}` |
+| 全組合せ展開 (デカルト積) | `placeholders` | `{name}` |
+| インライン 1 つランダム | （定義不要） | `{a \| b \| c:r}` |
+
+dump-prompts で `%xxx%` がリテラル残ってたら構文ミス確定。
+
 ## よくある参考 job
 
 - `/mnt/c/Users/inada/obsidian/base/03_projects/comfyui/configs/jobs/base/` — 基本テンプレート
