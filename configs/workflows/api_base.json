@@ -319,8 +319,8 @@
     "inputs": {
       "filename_prefix": "ComfyUI",
       "images": [
-        "8",
-        0
+        "156",
+        5
       ]
     },
     "class_type": "SaveImage",

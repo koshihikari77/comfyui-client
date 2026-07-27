@@ -16,3 +16,5 @@ gcp/
 .serena/
 .claude/
 .coverage
+data/
+comfyv.db
