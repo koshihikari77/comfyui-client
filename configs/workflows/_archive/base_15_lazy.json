@@ -1,0 +1,242 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "246",
+        1
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE\u30c7\u30b3\u30fc\u30c9"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 1.0,
+      "clip_weight_1": 1.0,
+      "switch_2": "On",
+      "lora_name_2": "748cmSDXL.safetensors",
+      "model_weight_2": 0.75,
+      "clip_weight_2": 0.75,
+      "switch_3": "Off",
+      "lora_name_3": "None",
+      "model_weight_3": 0.3,
+      "clip_weight_3": 1.0
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 1.0,
+      "clip_weight_1": 1.0,
+      "switch_2": "Off",
+      "lora_name_2": "None",
+      "model_weight_2": 0.3,
+      "clip_weight_2": 1.0,
+      "switch_3": "Off",
+      "lora_name_3": "Low-key_Lightsv2_illus.safetensors",
+      "model_weight_3": 1.0,
+      "clip_weight_3": 1.0,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "niji-chigusa.safetensors",
+      "model_weight_1": 0.5,
+      "clip_weight_1": 0.5,
+      "switch_2": "Off",
+      "lora_name_2": "Deepthroat slider IXLR3_alpha16.0_rank32_full_last.safetensors",
+      "model_weight_2": 1.0,
+      "clip_weight_2": 1.0,
+      "switch_3": "Off",
+      "lora_name_3": "lightingSlider.safetensors",
+      "model_weight_3": -0.1,
+      "clip_weight_3": 1.0,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "obsessionIllustrious_v31.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "\u30c1\u30a7\u30c3\u30af\u30dd\u30a4\u30f3\u30c8\u3092\u8aad\u307f\u8fbc\u3080"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 1200,
+      "height": 1200,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "\u7a7a\u306e\u6f5c\u5728\u753b\u50cf"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIP\u306e\u6700\u7d42\u5c64\u3092\u8a2d\u5b9a"
+    }
+  },
+  "246": {
+    "inputs": {
+      "seed": 25757471647314,
+      "steps": 28,
+      "cfg": 4.0,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "247": {
+    "inputs": {
+      "model": [
+        "272",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ],
+      "positive": [
+        "279",
+        0
+      ],
+      "negative": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "ToBasicPipe",
+    "_meta": {
+      "title": "ToBasicPipe"
+    }
+  },
+  "272": {
+    "inputs": {
+      "sampling": "eps",
+      "zsnr": false,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingDiscrete",
+    "_meta": {
+      "title": "\u30e2\u30c7\u30eb\u30b5\u30f3\u30d7\u30ea\u30f3\u30b0\u96e2\u6563"
+    }
+  },
+  "274": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "\u753b\u50cf\u3092\u4fdd\u5b58"
+    }
+  },
+  "276": {
+    "inputs": {
+      "text": "(bad),text,error,fewer,extra,missing,worst quality,jpeg artifacts,low quality,watermark,unfinished,displeasing,oldest,early,chromatic aberration,signature,extra digits,artistic error,username,scan,[abstract],serafuku,worst eyes,fur hair,big head,",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "279": {
+    "inputs": {
+      "text": "// \u5207\u308a\u66ff\u3048\u30bf\u30a4\u30df\u30f3\u30b0\uff08\u4f8b\uff1a0.3\u3067 AREA\u2192COUPLE\uff09\nDEF(TIMING=0.3)\n\n// \u5916\u898b\nDEF(GIRL_A=\nnishizono chigusa, blue hair, short hair,  niji-chigusa, (blue) cheerleader, upskirt, \n)\n \n\n// \u80cc\u666f\nkawaraya, hiro \\(dismaless\\), skinny, skindentation, \n[ :(split screen, multiple views:0.8):TIMING ]\n\n[AND AREA(0 0.5):COUPLE(0 0.5):TIMING]\n[1girl::TIMING], GIRL_A,  standing , open mouth, fang, v, looking at viewer, from above, school, running track, outdoors,\n\n[AND AREA(0.5 0.5):COUPLE(0.5 0.5):TIMING]\n [1girl::TIMING], GIRL_A,\nsex from behind, doggystyle, against wall, standing, bent over, from behind, holding another's arm, holding another's waist, ass, skirt lift, (motion lines, sound effects:1.2), steam, heart, indoors, toilet,\n\n",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCLazyTextEncode",
+    "_meta": {
+      "title": "PC: Schedule Prompt"
+    }
+  }
+}

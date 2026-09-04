@@ -1,0 +1,272 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "171",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "30": {
+    "inputs": {
+      "width": 4096,
+      "height": 4096,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 4096,
+      "target_height": 4096,
+      "text_g": [
+        "149",
+        0
+      ],
+      "text_l": [
+        "149",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "CLIPテキストエンコードSDXL"
+    }
+  },
+  "33": {
+    "inputs": {
+      "width": 4096,
+      "height": 4096,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 4096,
+      "target_height": 4096,
+      "text_g": [
+        "221",
+        0
+      ],
+      "text_l": [
+        "221",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "CLIPテキストエンコードSDXL"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "Asou_Artist_-_Illustrious.safetensors",
+      "model_weight_1": 0.35000000000000003,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "flat_sdxl.safetensors",
+      "model_weight_2": 0.5,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "thick_eyelashes_illustrious_20K-000017.safetensors",
+      "model_weight_3": 0.5,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "💊 CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "add-detail-xl.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "AIイラストおじさん_style_illustrious_goofy.safetensors",
+      "model_weight_2": 0.6,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "niji-sara.safetensors",
+      "model_weight_3": 0.4,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "solidline.safetensors",
+      "model_weight_1": 0.8,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "facelightup_xl_v10.safetensors",
+      "model_weight_2": 1.5,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "748cmSDXL.safetensors",
+      "model_weight_3": 0.5,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "waiNSFWIllustrious_v140.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "チェックポイントを読み込む"
+    }
+  },
+  "149": {
+    "inputs": {
+      "text": "1girl,\nhoshikawa sara,  pubic_hair, \nmissionary, completely_nude, \nmotion_lines, sound_effects, full_body, \nlooking_at_viewer, \n\nnsfw, masterpiece, best quality, amazing quality,"
+    },
+    "class_type": "ttN text",
+    "_meta": {
+      "title": "text"
+    }
+  },
+  "171": {
+    "inputs": {
+      "seed": 607955007656373,
+      "steps": 28,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "222",
+        0
+      ],
+      "positive": [
+        "30",
+        0
+      ],
+      "negative": [
+        "33",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Kサンプラー"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空の潜在画像"
+    }
+  },
+  "221": {
+    "inputs": {
+      "text": "bad quality,worst quality,worst detail,sketch,censor,"
+    },
+    "class_type": "ttN text",
+    "_meta": {
+      "title": "text"
+    }
+  },
+  "222": {
+    "inputs": {
+      "b1": 1.2,
+      "b2": 0.6,
+      "s1": 1.2,
+      "s2": 0.8,
+      "start_percent": 0.1,
+      "end_percent": 0.5,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "FreeU_V2_timestepadd",
+    "_meta": {
+      "title": "FreeU_V2_timestepadd"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIPの最終層を設定"
+    }
+  },
+  "228": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "save_image": true,
+      "include_workflow": false,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "Save Image w/o Metadata",
+    "_meta": {
+      "title": "Save Image w/o Metadata"
+    }
+  }
+}

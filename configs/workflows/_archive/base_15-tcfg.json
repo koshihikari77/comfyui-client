@@ -1,0 +1,254 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "246",
+        1
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "748cmSDXL.safetensors",
+      "model_weight_2": 0.75,
+      "clip_weight_2": 0.75,
+      "switch_3": "Off",
+      "lora_name_3": "None",
+      "model_weight_3": 0.3,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "💊 CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "None",
+      "model_weight_2": 0.3,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "Low-key_Lightsv2_illus.safetensors",
+      "model_weight_3": 0.7,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "nyaliaXL_NBVP1_lokr_V6311P.safetensors",
+      "model_weight_1": 0.5,
+      "clip_weight_1": 0.5,
+      "switch_2": "Off",
+      "lora_name_2": "Deepthroat slider IXLR3_alpha16.0_rank32_full_last.safetensors",
+      "model_weight_2": 0.7,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "lightingSlider.safetensors",
+      "model_weight_3": -0.2,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "obsessionIllustrious_v31.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "チェックポイントを読み込む"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 896,
+      "height": 1152,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空の潜在画像"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIPの最終層を設定"
+    }
+  },
+  "246": {
+    "inputs": {
+      "seed": 58793764,
+      "steps": 28,
+      "cfg": 5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "247": {
+    "inputs": {
+      "model": [
+        "272",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ],
+      "positive": [
+        "275",
+        0
+      ],
+      "negative": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "ToBasicPipe",
+    "_meta": {
+      "title": "ToBasicPipe"
+    }
+  },
+  "272": {
+    "inputs": {
+      "sampling": "eps",
+      "zsnr": false,
+      "model": [
+        "279",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingDiscrete",
+    "_meta": {
+      "title": "モデルサンプリング離散"
+    }
+  },
+  "274": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "画像を保存"
+    }
+  },
+  "275": {
+    "inputs": {
+      "text": "1girl, hoshikawa sara \\(nijisanji\\), hoshikawa sara \\(4th costume\\), BREAK, kawaraya, hiro \\(dismaless\\), skinny, skindentation, BREAK, twintails, blonde hair, hair intakes, blunt bangs, ahoge, heterochromia, orange eyes, red eyes, thick_eyelashes, (eye highlight:1.2), BREAK, collared shirt, red ribbon, loose bowtie, red bowtie, hair ribbon, brown thighhighs, black garter straps, nude, BREAK, naughty face, smirk, looking at viewer, BREAK, bent over, shushing, presenting, presenting ass, spread ass, spread pussy, spreading own pussy, large breasts, ass, pussy, pubic hair, from behind, BREAK, 1boy, penis, BREAK, lowkey lights, darkness, pink lighting, (subtle lighting), (dim lighting), pink lighting, subtle shadows, BREAK, (burry_background:1.2), indoors, booth seating, pink-themed interior, curtain, BREAK, nsfw, hetero, very aesthetic, masterpiece, best quality",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "276": {
+    "inputs": {
+      "text": "(bad),text,error,fewer,extra,missing,worst quality,jpeg artifacts,low quality,watermark,unfinished,displeasing,oldest,early,chromatic aberration,signature,extra digits,artistic error,username,scan,[abstract],serafuku,worst eyes,fur hair,big head,",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "279": {
+    "inputs": {
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "TCFG",
+    "_meta": {
+      "title": "接線減衰 CFG"
+    }
+  }
+}

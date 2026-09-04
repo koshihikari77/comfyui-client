@@ -1,0 +1,491 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "246",
+        1
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "748cmSDXL.safetensors",
+      "model_weight_2": 0.75,
+      "clip_weight_2": 0.75,
+      "switch_3": "Off",
+      "lora_name_3": "None",
+      "model_weight_3": 0.3,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "💊 CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "None",
+      "model_weight_2": 0.3,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "Low-key_Lightsv2_illus.safetensors",
+      "model_weight_3": 1,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 0.5,
+      "clip_weight_1": 0.5,
+      "switch_2": "Off",
+      "lora_name_2": "Deepthroat slider IXLR3_alpha16.0_rank32_full_last.safetensors",
+      "model_weight_2": 1,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "lightingSlider.safetensors",
+      "model_weight_3": -0.1,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "obsessionIllustrious_v31.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "チェックポイントを読み込む"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 1152,
+      "height": 1152,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空の潜在画像"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIPの最終層を設定"
+    }
+  },
+  "246": {
+    "inputs": {
+      "seed": 379260567330814,
+      "steps": 28,
+      "cfg": 3,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "247": {
+    "inputs": {
+      "model": [
+        "272",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ],
+      "positive": [
+        "275",
+        0
+      ],
+      "negative": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "ToBasicPipe",
+    "_meta": {
+      "title": "ToBasicPipe"
+    }
+  },
+  "272": {
+    "inputs": {
+      "sampling": "eps",
+      "zsnr": false,
+      "model": [
+        "278",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingDiscrete",
+    "_meta": {
+      "title": "モデルサンプリング離散"
+    }
+  },
+  "275": {
+    "inputs": {
+      "text": "2girls, \nBREAK, kawaraya, hiro \\(dismaless\\), skinny, skindentation, blush, embrassed,  line blush, \n\namamiya kokoro, amamiya kokoro \\(8th costume\\), yorumi rena, yorumi rena \\(11th costume\\),  gradient hair, multicolored hair, blue hair, grey hair, long hair, red hair, large breasts, medium breasts,  breasts, skirt, frilled thigh strap, frills, grey skirt, high-waist skirt, plaid clothes, plaid skirt, thigh strap, clothed female nude male,  blue nails, red nails, censored,  1boy, 2girls, multiple girls, simple background, cooperative fellatio, fellatio, ffm threesome, group sex, hetero, kneeling, mosaic censoring, nail polish, nude, oral, saliva, teamwork \\(sexual\\), testicle sucking, threesome, view between legs, virtual youtuber\n\nlowkey lights, dramatic shadow, depth of field, darkness, volumetric lighting, warm_lighting, dim_lighting, bed,\n\nnsfw, master piece, best quality, ",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "276": {
+    "inputs": {
+      "text": "bad anatomy, poorly drawn face, bad hands, morbid, deformed, disfigured, mutilated,smile,bound penis,bound brasts,teeth\n\nBREAK\nmalformed,(worst quality,bad quality,lowres,bad fingers,extra fingersextra legs,missing legs,missing fingers:1.4)\n\nBREAK\nmissing body part, error, malformed hands, legs, bad feet, fused legs, broken legs, bad penis, bad eyes, censored, bad butt, \n\nBREAK\nbad body proportions, bad face, bad facial expression, gross proportions, bad abs, disappearing hands, fused hands, fused body part, fused legs, fused digits,\n\nBREAK\nnot in perspective, bad artist, bad background, ugly, jpeg artifacts, squares, faded, worst quality,lowres, low quality, bad quality, plain pose, plain figure,",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "278": {
+    "inputs": {
+      "multiplier": 0.7,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "RescaleCFG",
+    "_meta": {
+      "title": "CFGを再スケール"
+    }
+  },
+  "279": {
+    "inputs": {
+      "pixels": [
+        "280",
+        0
+      ],
+      "vae": [
+        "283",
+        3
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAEエンコード"
+    }
+  },
+  "280": {
+    "inputs": {
+      "upscale_by": 1.5,
+      "seed": 168909359807693,
+      "steps": 10,
+      "cfg": 8,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "simple",
+      "denoise": 0,
+      "mode_type": "Linear",
+      "tile_width": 512,
+      "tile_height": 512,
+      "mask_blur": 8,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": true,
+      "tiled_decode": false,
+      "image": [
+        "8",
+        0
+      ],
+      "model": [
+        "283",
+        1
+      ],
+      "positive": [
+        "283",
+        4
+      ],
+      "negative": [
+        "283",
+        5
+      ],
+      "vae": [
+        "283",
+        3
+      ],
+      "upscale_model": [
+        "289",
+        0
+      ]
+    },
+    "class_type": "UltimateSDUpscale",
+    "_meta": {
+      "title": "Ultimate SD Upscale"
+    }
+  },
+  "281": {
+    "inputs": {
+      "samples": [
+        "282",
+        1
+      ],
+      "vae": [
+        "282",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "282": {
+    "inputs": {
+      "seed": 5195857730487,
+      "steps": 10,
+      "cfg": 3,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 0.2,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "279",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "283": {
+    "inputs": {
+      "basic_pipe": [
+        "247",
+        0
+      ]
+    },
+    "class_type": "FromBasicPipe_v2",
+    "_meta": {
+      "title": "FromBasicPipe_v2"
+    }
+  },
+  "288": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "画像を保存"
+    }
+  },
+  "289": {
+    "inputs": {
+      "model_name": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "拡大モデルを読み込む"
+    }
+  },
+  "301": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00027_.png&type=temp&subfolder=&rand=0.9805044234306286"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00028_.png&type=temp&subfolder=&rand=0.34947357032421544"
+          }
+        ]
+      },
+      "image_a": [
+        "8",
+        0
+      ],
+      "image_b": [
+        "280",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "302": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00025_.png&type=temp&subfolder=&rand=0.004544760684889404"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00026_.png&type=temp&subfolder=&rand=0.12235186401434994"
+          }
+        ]
+      },
+      "image_a": [
+        "280",
+        0
+      ],
+      "image_b": [
+        "281",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "303": {
+    "inputs": {
+      "clamp": true,
+      "gamma": 1,
+      "contrast": 1.02,
+      "exposure": 0,
+      "offset": 0,
+      "hue": 0,
+      "saturation": 1.05,
+      "value": 1,
+      "image": [
+        "281",
+        0
+      ]
+    },
+    "class_type": "Color Correct (mtb)",
+    "_meta": {
+      "title": "Color Correct (mtb)"
+    }
+  },
+  "304": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00025_.png&type=temp&subfolder=&rand=0.004544760684889404"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_uauhr_00026_.png&type=temp&subfolder=&rand=0.12235186401434994"
+          }
+        ]
+      },
+      "image_a": [
+        "281",
+        0
+      ],
+      "image_b": [
+        "303",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  }
+}

@@ -1,0 +1,377 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "246",
+        1
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE\u30c7\u30b3\u30fc\u30c9"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "748cmSDXL.safetensors",
+      "model_weight_2": 0.5,
+      "clip_weight_2": 0.75,
+      "switch_3": "Off",
+      "lora_name_3": "Ebora_Style_Lora_Epoch10.safetensors",
+      "model_weight_3": 0.25,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "None",
+      "model_weight_2": 0.3,
+      "clip_weight_2": 1,
+      "switch_3": "On",
+      "lora_name_3": "Low-key_Lightsv2_illus.safetensors",
+      "model_weight_3": 0.5,
+      "clip_weight_3": 0.5,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 0.5,
+      "clip_weight_1": 0.5,
+      "switch_2": "Off",
+      "lora_name_2": "Deepthroat slider IXLR3_alpha16.0_rank32_full_last.safetensors",
+      "model_weight_2": 1,
+      "clip_weight_2": 1,
+      "switch_3": "On",
+      "lora_name_3": "lightingSlider.safetensors",
+      "model_weight_3": -0.1,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "\ud83d\udc8a CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "obsessionIllustrious_v31.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "\u30c1\u30a7\u30c3\u30af\u30dd\u30a4\u30f3\u30c8\u3092\u8aad\u307f\u8fbc\u3080"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 800,
+      "height": 1152,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "\u7a7a\u306e\u6f5c\u5728\u753b\u50cf"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIP\u306e\u6700\u7d42\u5c64\u3092\u8a2d\u5b9a"
+    }
+  },
+  "246": {
+    "inputs": {
+      "seed": 76667928879387,
+      "steps": 28,
+      "cfg": 4,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "247": {
+    "inputs": {
+      "model": [
+        "301",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ],
+      "positive": [
+        "279",
+        0
+      ],
+      "negative": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "ToBasicPipe",
+    "_meta": {
+      "title": "ToBasicPipe"
+    }
+  },
+  "275": {
+    "inputs": {
+      "text": "2girls, \nBREAK, kawaraya, hiro \\(dismaless\\), skinny, skindentation, blush, embrassed,  line blush, \n\namamiya kokoro, amamiya kokoro \\(8th costume\\), yorumi rena, yorumi rena \\(11th costume\\),  gradient hair, multicolored hair, blue hair, grey hair, long hair, red hair, large breasts, medium breasts,  breasts, skirt, frilled thigh strap, frills, grey skirt, high-waist skirt, plaid clothes, plaid skirt, thigh strap, clothed female nude male,  blue nails, red nails, censored,  1boy, 2girls, multiple girls, simple background, cooperative fellatio, fellatio, ffm threesome, group sex, hetero, kneeling, mosaic censoring, nail polish, nude, oral, saliva, teamwork \\(sexual\\), testicle sucking, threesome, view between legs, virtual youtuber\n\nlowkey lights, dramatic shadow, depth of field, darkness, volumetric lighting, warm_lighting, dim_lighting, bed,\n\nnsfw, master piece, best quality, ",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "276": {
+    "inputs": {
+      "text": "(window, door, ribbon), bad anatomy, poorly drawn face, bad hands, morbid, deformed, disfigured, mutilated,smile,bound penis,bound brasts,teeth\n\nBREAK\nmalformed,(worst quality,bad quality,lowres,bad fingers,extra fingersextra legs,missing legs,missing fingers:1.4)\n\nBREAK\nmissing body part, error, malformed hands, legs, bad feet, fused legs, broken legs, bad penis, bad eyes, censored, bad butt, \n\nBREAK\nbad body proportions, bad face, bad facial expression, gross proportions, bad abs, disappearing hands, fused hands, fused body part, fused legs, fused digits,\n\nBREAK\nnot in perspective, bad artist, bad background, ugly, jpeg artifacts, squares, faded, worst quality,lowres, low quality, bad quality, plain pose, plain figure,",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "301": {
+    "inputs": {
+      "multiplier": 0.7,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "RescaleCFG",
+    "_meta": {
+      "title": "CFG\u3092\u518d\u30b9\u30b1\u30fc\u30eb"
+    }
+  },
+  "318": {
+    "inputs": {
+      "filename_prefix": "ComfyUI_nsfw_mosaic",
+      "images": [
+        "319:319:316",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Mosaic Image"
+    }
+  },
+  "319:310": {
+    "inputs": {
+      "model_path": "segm/ntd11_anime_nsfw_segm_v5-variant1-seg.pt"
+    },
+    "class_type": "CustomUltralyticsModelLoader",
+    "_meta": {
+      "title": "NTD11 NSFW SEGM Loader"
+    }
+  },
+  "319:319:314": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "scale_by": 0.13,
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Pixelate Downscale"
+    }
+  },
+  "319:319:309": {
+    "inputs": {
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Generated Image Size"
+    }
+  },
+  "319:319:311": {
+    "inputs": {
+      "conf": 0.25,
+      "iou": 0.7,
+      "height": [
+        "319:319:309",
+        1
+      ],
+      "width": [
+        "319:319:309",
+        0
+      ],
+      "device": "cuda:0",
+      "half": false,
+      "augment": false,
+      "agnostic_nms": false,
+      "classes": "1,3,4,5,6",
+      "model": [
+        "319:310",
+        0
+      ],
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "UltralyticsInference",
+    "_meta": {
+      "title": "Ultralytics Inference NSFW Classes"
+    }
+  },
+  "319:319:316": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "8",
+        0
+      ],
+      "source": [
+        "319:319:315",
+        0
+      ],
+      "mask": [
+        "319:319:312",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Masked Mosaic Image"
+    }
+  },
+  "319:319:312": {
+    "inputs": {
+      "masks": [
+        "319:319:311",
+        8
+      ]
+    },
+    "class_type": "UltralyticsMaskFlatten",
+    "_meta": {
+      "title": "NSFW Flatten Mask"
+    }
+  },
+  "319:319:315": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "width": [
+        "319:319:309",
+        0
+      ],
+      "height": [
+        "319:319:309",
+        1
+      ],
+      "crop": "disabled",
+      "image": [
+        "319:319:314",
+        0
+      ]
+    },
+    "class_type": "ImageScale",
+    "_meta": {
+      "title": "Pixelate Original Size"
+    }
+  },
+  "279": {
+    "inputs": {
+      "text": "// \u5207\u308a\u66ff\u3048\u30bf\u30a4\u30df\u30f3\u30b0\uff08\u4f8b\uff1a0.3\u3067 AREA\u2192COUPLE\uff09\nDEF(TIMING=0.3)\n\n// \u5916\u898b\nDEF(GIRL_A=\nnishizono chigusa, blue hair, short hair,  niji-chigusa, (blue) cheerleader, upskirt, \n)\n \n\n// \u80cc\u666f\nkawaraya, hiro \\(dismaless\\), skinny, skindentation, \n[ :(split screen, multiple views:0.8):TIMING ]\n\n[AND AREA(0 0.5):COUPLE(0 0.5):TIMING]\n[1girl::TIMING], GIRL_A,  standing , open mouth, fang, v, looking at viewer, from above, school, running track, outdoors,\n\n[AND AREA(0.5 0.5):COUPLE(0.5 0.5):TIMING]\n [1girl::TIMING], GIRL_A,\nsex from behind, doggystyle, against wall, standing, bent over, from behind, holding another's arm, holding another's waist, ass, skirt lift, (motion lines, sound effects:1.2), steam, heart, indoors, toilet,\n\n",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCLazyTextEncode",
+    "_meta": {
+      "title": "PC: Schedule Prompt"
+    }
+  }
+}

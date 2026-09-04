@@ -1,0 +1,339 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "246",
+        1
+      ],
+      "vae": [
+        "138",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "748cmSDXL.safetensors",
+      "model_weight_2": 0.35,
+      "clip_weight_2": 0.75,
+      "switch_3": "On",
+      "lora_name_3": "eyes/eyecolle_xl_code124.safetensors",
+      "model_weight_3": 1.3,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "💊 CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "None",
+      "model_weight_2": 0.3,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "Low-key_Lightsv2_illus.safetensors",
+      "model_weight_3": 1,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "Off",
+      "lora_name_1": "None",
+      "model_weight_1": 0.5,
+      "clip_weight_1": 0.5,
+      "switch_2": "Off",
+      "lora_name_2": "Deepthroat slider IXLR3_alpha16.0_rank32_full_last.safetensors",
+      "model_weight_2": 1,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "lightingSlider.safetensors",
+      "model_weight_3": -0.1,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "obsessionIllustrious_v31.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "チェックポイントを読み込む"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 1152,
+      "height": 1152,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空の潜在画像"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIPの最終層を設定"
+    }
+  },
+  "246": {
+    "inputs": {
+      "seed": 800026778243666,
+      "steps": 28,
+      "cfg": 3,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1,
+      "basic_pipe": [
+        "247",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "ImpactKSamplerBasicPipe",
+    "_meta": {
+      "title": "KSampler (pipe)"
+    }
+  },
+  "247": {
+    "inputs": {
+      "model": [
+        "272",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ],
+      "vae": [
+        "138",
+        2
+      ],
+      "positive": [
+        "275",
+        0
+      ],
+      "negative": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "ToBasicPipe",
+    "_meta": {
+      "title": "ToBasicPipe"
+    }
+  },
+  "272": {
+    "inputs": {
+      "sampling": "eps",
+      "zsnr": false,
+      "model": [
+        "278",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingDiscrete",
+    "_meta": {
+      "title": "モデルサンプリング離散"
+    }
+  },
+  "275": {
+    "inputs": {
+      "text": "1girl, vspo!, (hair down:1.2), (black) hair, (short_hair), flipped_hair, dark_skin, tan, tanlines,  yellow_eyes, tsurime, thick eyelashes, large breasts,\n\nBREAK,  hiro \\(dismaless\\), skinny, skindentation,  \nBREAK, (blush, embrassed, half-closed eyes),  slightly open mouth, \nlying, completely nude, facing away, looking to the side:1.2, hand up, \n breasts, nipples, navel,\n\non bed, soft lighting,\n\nBREAK, BREAK, lowkey lights, dramatic shadow, depth of field, darkness, volumetric lighting, warm_lighting, dim_lighting, nsfw",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "276": {
+    "inputs": {
+      "text": "(bad),text,error,fewer,extra,missing,worst quality,jpeg artifacts,low quality,watermark,unfinished,displeasing,oldest,early,chromatic aberration,signature,extra digits,artistic error,username,scan,[abstract],serafuku,worst eyes,fur hair,big head,",
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "PCTextEncode",
+    "_meta": {
+      "title": "PC: Text Encode (no scheduling)"
+    }
+  },
+  "278": {
+    "inputs": {
+      "multiplier": 0.7,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "RescaleCFG",
+    "_meta": {
+      "title": "CFGを再スケール"
+    }
+  },
+  "283": {
+    "inputs": {
+      "basic_pipe": [
+        "247",
+        0
+      ]
+    },
+    "class_type": "FromBasicPipe_v2",
+    "_meta": {
+      "title": "FromBasicPipe_v2"
+    }
+  },
+  "288": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "画像を保存"
+    }
+  },
+  "289": {
+    "inputs": {
+      "model_name": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "拡大モデルを読み込む"
+    }
+  },
+  "291": {
+    "inputs": {
+      "clamp": true,
+      "gamma": 1,
+      "contrast": 1.02,
+      "exposure": 0,
+      "offset": 0,
+      "hue": 0,
+      "saturation": 1.05,
+      "value": 1,
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "Color Correct (mtb)",
+    "_meta": {
+      "title": "Color Correct (mtb)"
+    }
+  },
+  "292": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_rloxu_00011_.png&type=temp&subfolder=&rand=0.7966886471482055"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_rloxu_00012_.png&type=temp&subfolder=&rand=0.47670675263498274"
+          }
+        ]
+      },
+      "image_a": [
+        "8",
+        0
+      ],
+      "image_b": [
+        "291",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "295": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "291",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "画像を保存"
+    }
+  }
+}

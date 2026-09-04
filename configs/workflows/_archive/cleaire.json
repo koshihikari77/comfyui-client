@@ -1,0 +1,447 @@
+{
+  "8": {
+    "inputs": {
+      "samples": [
+        "171",
+        0
+      ],
+      "vae": [
+        "228",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEデコード"
+    }
+  },
+  "30": {
+    "inputs": {
+      "width": 4096,
+      "height": 4096,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 4118,
+      "target_height": 4096,
+      "text_g": [
+        "149",
+        0
+      ],
+      "text_l": [
+        "149",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "CLIPテキストエンコードSDXL"
+    }
+  },
+  "33": {
+    "inputs": {
+      "width": 4096,
+      "height": 4096,
+      "crop_w": 0,
+      "crop_h": 0,
+      "target_width": 4096,
+      "target_height": 4096,
+      "text_g": [
+        "221",
+        0
+      ],
+      "text_l": [
+        "221",
+        0
+      ],
+      "clip": [
+        "223",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeSDXL",
+    "_meta": {
+      "title": "CLIPテキストエンコードSDXL"
+    }
+  },
+  "54": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Asou_Artist_-_Illustrious.safetensors",
+      "model_weight_1": 0.35,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "flat_sdxl.safetensors",
+      "model_weight_2": 0.5,
+      "clip_weight_2": 1,
+      "switch_3": "On",
+      "lora_name_3": "thick_eyelashes_illustrious_20K-000017.safetensors",
+      "model_weight_3": 0.2,
+      "clip_weight_3": 1
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "55": {
+    "inputs": {
+      "model": [
+        "138",
+        0
+      ],
+      "clip": [
+        "138",
+        1
+      ],
+      "lora_stack": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "CR Apply LoRA Stack",
+    "_meta": {
+      "title": "💊 CR Apply LoRA Stack"
+    }
+  },
+  "56": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "add-detail-xl.safetensors",
+      "model_weight_1": 1,
+      "clip_weight_1": 1,
+      "switch_2": "On",
+      "lora_name_2": "AIイラストおじさん_style_illustrious_goofy.safetensors",
+      "model_weight_2": 0.6,
+      "clip_weight_2": 1,
+      "switch_3": "On",
+      "lora_name_3": "niji-claire.safetensors",
+      "model_weight_3": 0.2,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "54",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "86": {
+    "inputs": {
+      "model_name": "4x-AnimeSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "拡大モデルを読み込む"
+    }
+  },
+  "90": {
+    "inputs": {
+      "upscale_by": 1.5,
+      "seed": 296544833726540,
+      "steps": 20,
+      "cfg": 7.5,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 0,
+      "mode_type": "Linear",
+      "tile_width": 512,
+      "tile_height": 512,
+      "mask_blur": 8,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": true,
+      "tiled_decode": false,
+      "image": [
+        "8",
+        0
+      ],
+      "model": [
+        "222",
+        0
+      ],
+      "positive": [
+        "30",
+        0
+      ],
+      "negative": [
+        "33",
+        0
+      ],
+      "vae": [
+        "228",
+        0
+      ],
+      "upscale_model": [
+        "86",
+        0
+      ]
+    },
+    "class_type": "UltimateSDUpscale",
+    "_meta": {
+      "title": "Ultimate SD Upscale"
+    }
+  },
+  "116": {
+    "inputs": {
+      "switch_1": "On",
+      "lora_name_1": "Expressive_H-000001.safetensors",
+      "model_weight_1": 0.6,
+      "clip_weight_1": 1,
+      "switch_2": "Off",
+      "lora_name_2": "sound_effects-000015.safetensors",
+      "model_weight_2": 1,
+      "clip_weight_2": 1,
+      "switch_3": "Off",
+      "lora_name_3": "kawarayaXL_P6_lokr_V53P1.safetensors",
+      "model_weight_3": 0.5,
+      "clip_weight_3": 1,
+      "lora_stack": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "CR LoRA Stack",
+    "_meta": {
+      "title": "💊 CR LoRA Stack"
+    }
+  },
+  "138": {
+    "inputs": {
+      "ckpt_name": "hassakuXLIllustrious_v22.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "チェックポイントを読み込む"
+    }
+  },
+  "149": {
+    "inputs": {
+      "text": "nsfw, masterpiece, best quality, amazing quality, 1girl, sister_cleaire,  \\(nijisanji\\), niji-claire, legs up, lying, (facing_to_the_side:1.2), panties, pov, from above, covering own face, blush, embarrassed,  bed, sound effects, detailed skin, (shinny skin:0.6), detailed beautiful face and eye, thick eyelashes, (eye highlight:1.2), 4k, highres, insanely detailed and intricate"
+    },
+    "class_type": "ttN text",
+    "_meta": {
+      "title": "text"
+    }
+  },
+  "156": {
+    "inputs": {
+      "seed": 127283369579844,
+      "steps": 10,
+      "cfg": 5,
+      "sampler_name": "dpmpp_2m_sde",
+      "scheduler": "karras",
+      "denoise": 0.4,
+      "preview_method": "auto",
+      "vae_decode": "true",
+      "model": [
+        "55",
+        0
+      ],
+      "positive": [
+        "30",
+        0
+      ],
+      "negative": [
+        "33",
+        0
+      ],
+      "latent_image": [
+        "159",
+        0
+      ],
+      "optional_vae": [
+        "228",
+        0
+      ]
+    },
+    "class_type": "KSampler (Efficient)",
+    "_meta": {
+      "title": "KSampler (Efficient)"
+    }
+  },
+  "159": {
+    "inputs": {
+      "pixels": [
+        "90",
+        0
+      ],
+      "vae": [
+        "228",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAEエンコード"
+    }
+  },
+  "171": {
+    "inputs": {
+      "seed": 982052826951217,
+      "steps": 25,
+      "cfg": 6,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "222",
+        0
+      ],
+      "positive": [
+        "30",
+        0
+      ],
+      "negative": [
+        "33",
+        0
+      ],
+      "latent_image": [
+        "220",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Kサンプラー"
+    }
+  },
+  "220": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空の潜在画像"
+    }
+  },
+  "221": {
+    "inputs": {
+      "text": "bad quality,worst quality,worst detail,sketch,censor,"
+    },
+    "class_type": "ttN text",
+    "_meta": {
+      "title": "text"
+    }
+  },
+  "222": {
+    "inputs": {
+      "b1": 1.2,
+      "b2": 0.6,
+      "s1": 1.2,
+      "s2": 0.8,
+      "start_percent": 0.1,
+      "end_percent": 0.5,
+      "model": [
+        "55",
+        0
+      ]
+    },
+    "class_type": "FreeU_V2_timestepadd",
+    "_meta": {
+      "title": "FreeU_V2_timestepadd"
+    }
+  },
+  "223": {
+    "inputs": {
+      "stop_at_clip_layer": -2,
+      "clip": [
+        "55",
+        1
+      ]
+    },
+    "class_type": "CLIPSetLastLayer",
+    "_meta": {
+      "title": "CLIPの最終層を設定"
+    }
+  },
+  "225": {
+    "inputs": {
+      "censor_method": "pixelate",
+      "min_score": 0.2,
+      "blocks": 3,
+      "block_count_scaling": "fixed",
+      "overlay_strength": 1,
+      "nudenet_model": [
+        "226",
+        0
+      ],
+      "filtered_labels": [
+        "227",
+        0
+      ]
+    },
+    "class_type": "ApplyNudenet",
+    "_meta": {
+      "title": "Apply Nudenet"
+    }
+  },
+  "226": {
+    "inputs": {
+      "model": "nudenet.onnx"
+    },
+    "class_type": "NudenetModelLoader",
+    "_meta": {
+      "title": "Nudenet Model Loader"
+    }
+  },
+  "227": {
+    "inputs": {
+      "FEMALE_GENITALIA_COVERED": false,
+      "FACE_FEMALE": false,
+      "BUTTOCKS_EXPOSED": false,
+      "FEMALE_BREAST_EXPOSED": false,
+      "FEMALE_GENITALIA_EXPOSED": true,
+      "MALE_BREAST_EXPOSED": false,
+      "ANUS_EXPOSED": false,
+      "FEET_EXPOSED": false,
+      "BELLY_COVERED": false,
+      "FEET_COVERED": false,
+      "ARMPITS_COVERED": false,
+      "ARMPITS_EXPOSED": false,
+      "FACE_MALE": false,
+      "BELLY_EXPOSED": false,
+      "MALE_GENITALIA_EXPOSED": false,
+      "ANUS_COVERED": false,
+      "FEMALE_BREAST_COVERED": false,
+      "BUTTOCKS_COVERED": false
+    },
+    "class_type": "FilterdLabel",
+    "_meta": {
+      "title": "Filtered Labels"
+    }
+  },
+  "228": {
+    "inputs": {
+      "vae_name": "SDXL/SDXL20VAE20Only20B1.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAEを読み込む"
+    }
+  },
+  "230": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "156",
+        5
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "画像を保存"
+    }
+  }
+}
